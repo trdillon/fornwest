@@ -18,8 +18,11 @@ class AFornwestCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
+
 public:
 	AFornwestCharacter();
+
+	virtual void Tick(float DeltaTime) override;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -44,11 +47,13 @@ protected:
 	void StartDamage();
 
 	/** Heals the character */
+	UFUNCTION(BlueprintCallable, Category = "Health")
 	void Heal(float HealAmount);
 
 	/** Damages the character */
-	void TakeDamage(float DamageAmount);
-	
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void ApplyDamage(float DamageAmount);
+
 	/** Resets HMD orientation in VR. */
 	void OnResetVR();
 
@@ -79,6 +84,10 @@ protected:
 	/** The amount of health the player currently has. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
 	float PlayerHealth;
+
+	/** The amount of stamina the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+	float PlayerStamina;
 
 	/** Is the player currently sprinting or not. */
 	bool IsSprinting;

@@ -47,6 +47,7 @@ AFornwestCharacter::AFornwestCharacter()
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
 	PlayerHealth = 1.00f;
+	PlayerStamina = 1.00f;
 	IsSprinting = false;
 }
 
@@ -83,6 +84,30 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AFornwestCharacter::OnResetVR);
+}
+
+void AFornwestCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	/** Regenerate stamina if not running, or drain it if running. */
+	if (this->PlayerStamina < 1.00f && !IsSprinting)
+	{
+		this->PlayerStamina += 0.1f * DeltaTime;
+		if (PlayerStamina > 1.00f)
+		{
+			PlayerStamina = 1.00f;
+		}
+	}
+	if (IsSprinting)
+	{
+		this->PlayerStamina -= 0.4f * DeltaTime;
+		if (PlayerStamina <= 0)
+		{
+			PlayerStamina = 0;
+			StopSprinting();
+		}
+	}
 }
 
 
@@ -167,7 +192,7 @@ void AFornwestCharacter::StartHealing()
 
 void AFornwestCharacter::StartDamage()
 {
-	TakeDamage(0.02f);
+	ApplyDamage(0.02f);
 }
 
 void AFornwestCharacter::Heal(float HealAmount)
@@ -180,7 +205,7 @@ void AFornwestCharacter::Heal(float HealAmount)
 	}
 }
 
-void AFornwestCharacter::TakeDamage(float DamageAmount)
+void AFornwestCharacter::ApplyDamage(float DamageAmount)
 {
 	PlayerHealth -= DamageAmount;
 
