@@ -29,7 +29,7 @@ AFornwestCharacter::AFornwestCharacter()
 	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
-	GetCharacterMovement()->JumpZVelocity = 600.f;
+	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.2f;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
@@ -56,6 +56,9 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
+	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
@@ -137,4 +140,14 @@ void AFornwestCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+}
+
+void AFornwestCharacter::Sprint()
+{
+	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
+}
+
+void AFornwestCharacter::StopSprinting()
+{
+	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 }
