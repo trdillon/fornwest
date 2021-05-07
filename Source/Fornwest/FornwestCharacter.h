@@ -29,11 +29,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
-	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-
 protected:
 
 	/** Allows the character to begin sprinting. */
@@ -41,6 +36,18 @@ protected:
 
 	/** Allows the character to stop sprinting. */
 	void StopSprinting();
+
+	/** Debug command to call Heal */
+	void StartHealing();
+
+	/** Debug command to call TakeDamage */
+	void StartDamage();
+
+	/** Heals the character */
+	void Heal(float HealAmount);
+
+	/** Damages the character */
+	void TakeDamage(float DamageAmount);
 	
 	/** Resets HMD orientation in VR. */
 	void OnResetVR();
@@ -69,7 +76,21 @@ protected:
 	/** Handler for when a touch input stops. */
 	void TouchStopped(ETouchIndex::Type FingerIndex, FVector Location);
 
+	/** The amount of health the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+	float PlayerHealth;
+
+	/** Is the player currently sprinting or not. */
+	bool IsSprinting;
+
+protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface
+
+public:
+	/** Returns CameraBoom subobject **/
+	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	/** Returns FollowCamera subobject **/
+	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };

@@ -45,6 +45,9 @@ AFornwestCharacter::AFornwestCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+
+	PlayerHealth = 1.00f;
+	IsSprinting = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -59,6 +62,9 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 
 	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
 	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
+
+	PlayerInputComponent->BindAction("Heal", IE_Pressed, this, &AFornwestCharacter::StartHealing);
+	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
@@ -144,10 +150,42 @@ void AFornwestCharacter::MoveRight(float Value)
 
 void AFornwestCharacter::Sprint()
 {
+	IsSprinting = true;
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
 }
 
 void AFornwestCharacter::StopSprinting()
 {
+	IsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+}
+
+void AFornwestCharacter::StartHealing()
+{
+	Heal(0.02f);
+}
+
+void AFornwestCharacter::StartDamage()
+{
+	TakeDamage(0.02f);
+}
+
+void AFornwestCharacter::Heal(float HealAmount)
+{
+	PlayerHealth += HealAmount;
+
+	if (PlayerHealth > 1.00f)
+	{
+		PlayerHealth = 1.00f;
+	}
+}
+
+void AFornwestCharacter::TakeDamage(float DamageAmount)
+{
+	PlayerHealth -= DamageAmount;
+
+	if (PlayerHealth < 0.00f)
+	{
+		PlayerHealth = 0.00f;
+	}
 }
