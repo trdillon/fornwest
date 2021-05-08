@@ -219,7 +219,6 @@ void AFornwestCharacter::UseAbility1()
 	// Wait for the casting to finish before moving on.
 	FTimerHandle Timer;
 	GetWorldTimerManager().SetTimer(Timer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
-	GetWorldTimerManager().ClearTimer(Timer);
 }
 
 void AFornwestCharacter::OnCastingFinish()
