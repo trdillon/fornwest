@@ -88,15 +88,28 @@ protected:
 	void TouchStopped(ETouchIndex::Type FingerIndex, FVector Location);
 
 	/** The amount of health the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-	float PlayerHealth;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxHealth;
+	
+	/** The amount of mana the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxMana;
 
 	/** The amount of stamina the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-	float PlayerStamina;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxStamina;
 
-	/** Is the player currently sprinting or not. */
-	bool IsSprinting;
+	/** The amount of health the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentHealth;
+	
+	/** The amount of mana the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentMana;
+
+	/** The amount of stamina the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentStamina;
 
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
@@ -109,6 +122,13 @@ protected:
 	/** Is the player currently casting a buff spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	bool IsCastingBuff;
+
+	/** Is the player currently sprinting or not. */
+	bool IsSprinting;
+
+	/** effect played on heal */
+	UPROPERTY(EditAnywhere, Category = "Ability")
+	UParticleSystem* HealFX;
 
 protected:
 	// APawn interface

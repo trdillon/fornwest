@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AFornwestCharacter
@@ -46,8 +47,12 @@ AFornwestCharacter::AFornwestCharacter()
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
-	PlayerHealth = 1.00f;
-	PlayerStamina = 1.00f;
+	MaxHealth = 1.00f;
+	MaxMana = 1.00f;
+	MaxStamina = 1.00f;
+	CurrentHealth = 1.00f;
+	CurrentMana = 1.00f;
+	CurrentStamina = 1.00f;
 	IsSprinting = false;
 }
 
@@ -91,27 +96,35 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 void AFornwestCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		this->CurrentMana += 0.1f * DeltaTime;
+		if (CurrentMana > MaxMana)
+		{
+			CurrentMana = MaxMana;
+		}
+	}
 	
 	/** Regenerate stamina if not running, or drain it if running. */
-	if (this->PlayerStamina < 1.00f && !IsSprinting)
+	if (this->CurrentStamina < MaxStamina && !IsSprinting)
 	{
-		this->PlayerStamina += 0.1f * DeltaTime;
-		if (PlayerStamina > 1.00f)
+		this->CurrentStamina += 0.1f * DeltaTime;
+		if (CurrentStamina > MaxStamina)
 		{
-			PlayerStamina = 1.00f;
+			CurrentStamina = MaxStamina;
 		}
 	}
 	if (IsSprinting)
 	{
-		this->PlayerStamina -= 0.4f * DeltaTime;
-		if (PlayerStamina <= 0)
+		this->CurrentStamina -= 0.4f * DeltaTime;
+		if (CurrentStamina <= 0)
 		{
-			PlayerStamina = 0;
+			CurrentStamina = 0;
 			StopSprinting();
 		}
 	}
 }
-
 
 void AFornwestCharacter::OnResetVR()
 {
@@ -194,38 +207,57 @@ void AFornwestCharacter::StartHealing()
 
 void AFornwestCharacter::StartDamage()
 {
-	ApplyDamage(0.02f);
+	ApplyDamage(0.2f);
 }
 
 void AFornwestCharacter::Heal(float HealAmount)
 {
-	PlayerHealth += HealAmount;
+	CurrentHealth += HealAmount;
 
-	if (PlayerHealth > 1.00f)
+	if (CurrentHealth > MaxHealth)
 	{
-		PlayerHealth = 1.00f;
+		CurrentHealth = MaxHealth;
 	}
 }
 
 void AFornwestCharacter::ApplyDamage(float DamageAmount)
 {
-	PlayerHealth -= DamageAmount;
+	CurrentHealth -= DamageAmount;
 
-	if (PlayerHealth < 0.00f)
+	if (CurrentHealth < 0.00f)
 	{
-		PlayerHealth = 0.00f;
+		CurrentHealth = 0.00f;
 	}
 }
 
 void AFornwestCharacter::UseAbility1()
 {
-	FTimerHandle Timer;
+	if (IsCasting1H || IsCasting2H || IsCastingBuff)
+	{
+		return;
+	}
+
+	if (CurrentMana < 0.15f)
+	{
+		return;
+	}
+
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+
+	CurrentMana -= 0.15f;
+	Heal(0.15f);
+
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
+	
 	IsCasting1H = true;
+	FTimerHandle Timer;
 	GetWorldTimerManager().SetTimer(Timer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
 }
 
 void AFornwestCharacter::OnCastingFinish()
 {
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	IsCasting1H = false;
 	IsCasting2H = false;
 	IsCastingBuff = false;
