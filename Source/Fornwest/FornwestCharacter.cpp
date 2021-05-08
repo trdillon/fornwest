@@ -1,13 +1,13 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AFornwestCharacter
@@ -29,7 +29,7 @@ AFornwestCharacter::AFornwestCharacter()
 	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
-	GetCharacterMovement()->JumpZVelocity = 600.f;
+	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.2f;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
@@ -45,6 +45,19 @@ AFornwestCharacter::AFornwestCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+
+	// Stats
+	MaxHealth = 1.00f;
+	MaxMana = 1.00f;
+	MaxStamina = 1.00f;
+	CurrentHealth = 1.00f;
+	CurrentMana = 1.00f;
+	CurrentStamina = 1.00f;
+	HealthRegenRate = 0.0025f;
+	ManaRegenRate = 0.0025f;
+	StaminaRegenRate = 0.01f;
+	StaminaDepleteRate = 0.01f;
+	IsSprinting = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -57,6 +70,13 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
+	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
+	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
+
+	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
+
+	PlayerInputComponent->BindAction("Ability 1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
+
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
 
@@ -67,35 +87,6 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
-
-	// handle touch devices
-	PlayerInputComponent->BindTouch(IE_Pressed, this, &AFornwestCharacter::TouchStarted);
-	PlayerInputComponent->BindTouch(IE_Released, this, &AFornwestCharacter::TouchStopped);
-
-	// VR headset functionality
-	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AFornwestCharacter::OnResetVR);
-}
-
-
-void AFornwestCharacter::OnResetVR()
-{
-	// If Fornwest is added to a project via 'Add Feature' in the Unreal Editor the dependency on HeadMountedDisplay in Fornwest.Build.cs is not automatically propagated
-	// and a linker error will result.
-	// You will need to either:
-	//		Add "HeadMountedDisplay" to [YourProject].Build.cs PublicDependencyModuleNames in order to build successfully (appropriate if supporting VR).
-	// or:
-	//		Comment or delete the call to ResetOrientationAndPosition below (appropriate if not supporting VR)
-	UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition();
-}
-
-void AFornwestCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		Jump();
-}
-
-void AFornwestCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		StopJumping();
 }
 
 void AFornwestCharacter::TurnAtRate(float Rate)
@@ -136,5 +127,133 @@ void AFornwestCharacter::MoveRight(float Value)
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
+	}
+}
+
+void AFornwestCharacter::Sprint()
+{
+	IsSprinting = true;
+	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
+	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::DepleteStamina, 0.05f, true);
+}
+
+void AFornwestCharacter::StopSprinting()
+{
+	IsSprinting = false;
+	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::RegenerateStamina, 0.1f, true, 1.00f);
+}
+
+void AFornwestCharacter::StartDamage()
+{
+	ApplyDamage(0.2f);
+}
+
+void AFornwestCharacter::Heal(float HealAmount)
+{
+	CurrentHealth += HealAmount;
+	if (CurrentHealth > MaxHealth)
+	{
+		CurrentHealth = MaxHealth;
+	}
+}
+
+void AFornwestCharacter::ApplyDamage(float DamageAmount)
+{
+	CurrentHealth -= DamageAmount;
+	if (CurrentHealth < 0.00f)
+	{
+		CurrentHealth = 0.00f;
+	}
+}
+
+void AFornwestCharacter::UseAbility1()
+{
+	if (IsCasting1H || IsCasting2H || IsCastingBuff)
+	{
+		return;
+	}
+
+	if (CurrentMana < 0.15f)
+	{
+		return;
+	}
+
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+
+	CurrentMana -= 0.15f;
+	Heal(0.15f);
+
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
+	
+	IsCasting1H = true;
+
+	// Wait for the casting to finish before moving on.
+	GetWorldTimerManager().SetTimer(CastAnimationTimer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
+	GetWorldTimerManager().SetTimer(HealthRegenTimer, this, &AFornwestCharacter::RegenerateHealth, 0.4f, true, 5.00f);
+}
+
+void AFornwestCharacter::OnCastingFinish()
+{
+	IsCasting1H = false;
+	IsCasting2H = false;
+	IsCastingBuff = false;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	GetWorldTimerManager().SetTimer(ManaRegenTimer, this, &AFornwestCharacter::RegenerateMana, 0.2f, true, 4.00f);
+}
+
+void AFornwestCharacter::RegenerateHealth()
+{
+	if (CurrentHealth == MaxHealth)
+	{
+		GetWorldTimerManager().ClearTimer(HealthRegenTimer);
+		return;
+	}
+	
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
+	}
+}
+
+void AFornwestCharacter::RegenerateMana()
+{
+	if (CurrentMana == MaxMana)
+	{
+		GetWorldTimerManager().ClearTimer(ManaRegenTimer);
+		return;
+	}
+	
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
+	}
+}
+
+void AFornwestCharacter::RegenerateStamina()
+{
+	if (CurrentStamina == MaxStamina)
+	{
+		GetWorldTimerManager().ClearTimer(StaminaRegenTimer);
+		return;
+	}
+	
+	if (this->CurrentStamina < MaxStamina && !IsSprinting)
+	{
+		CurrentStamina = FMath::Clamp(this->CurrentStamina += StaminaRegenRate, 0.0f, this->MaxStamina);
+	}
+}
+
+void AFornwestCharacter::DepleteStamina()
+{
+	if (IsSprinting)
+	{
+		CurrentStamina = FMath::Clamp(this->CurrentStamina -= StaminaDepleteRate, 0.0f, this->MaxStamina);
+		if (CurrentStamina <= 0)
+		{
+			GetWorldTimerManager().ClearTimer(StaminaDepleteTimer);
+			StopSprinting();
+		}
 	}
 }

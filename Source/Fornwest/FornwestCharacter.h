@@ -18,6 +18,7 @@ class AFornwestCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
+
 public:
 	AFornwestCharacter();
 
@@ -30,10 +31,6 @@ public:
 	float BaseLookUpRate;
 
 protected:
-
-	/** Resets HMD orientation in VR. */
-	void OnResetVR();
-
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
 
@@ -41,22 +38,136 @@ protected:
 	void MoveRight(float Value);
 
 	/** 
-	 * Called via input to turn at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
+	* Called via input to turn at a given rate. 
+	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	*/
 	void TurnAtRate(float Rate);
 
 	/**
-	 * Called via input to turn look up/down at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
+	* Called via input to turn look up/down at a given rate. 
+	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	*/
 	void LookUpAtRate(float Rate);
+	
+	/** Allows the character to begin sprinting. */
+	void Sprint();
 
-	/** Handler for when a touch input begins. */
-	void TouchStarted(ETouchIndex::Type FingerIndex, FVector Location);
+	/** Allows the character to stop sprinting. */
+	void StopSprinting();
 
-	/** Handler for when a touch input stops. */
-	void TouchStopped(ETouchIndex::Type FingerIndex, FVector Location);
+	/** Debug command to call TakeDamage. */
+	void StartDamage();
+
+	/** Debug command to use ability 1. */
+	void UseAbility1();
+
+	/** Handler for when a casting animation is finished. */
+	void OnCastingFinish();
+
+	/** Regenerates player health. */
+	void RegenerateHealth();
+
+	/** Regenerates player mana. */
+	void RegenerateMana();
+
+	/** Regenerates player stamina. */
+	void RegenerateStamina();
+
+	/** Depletes player stamina. */
+	void DepleteStamina();
+
+	/** Heals the character. */
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void Heal(float HealAmount);
+
+	/** Damages the character. */
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void ApplyDamage(float DamageAmount);
+	
+	///////// STATS //////////
+	///
+	/** The max amount of health the player can have. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxHealth;
+	
+	/** The max amount of mana the player can have. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxMana;
+
+	/** The max amount of stamina the player can have. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxStamina;
+
+	/** The amount of health the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentHealth;
+	
+	/** The amount of mana the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentMana;
+
+	/** The amount of stamina the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentStamina;
+
+	/** The rate at which the player's health regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float HealthRegenRate;
+
+	/** The rate at which the player's mana regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float ManaRegenRate;
+
+	/** The rate at which the player's stamina regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float StaminaRegenRate;
+
+	/** The rate at which the player's stamina depletes. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float StaminaDepleteRate;
+	
+	///////// STATUS //////////
+	///
+	/** Is the player currently casting a 1 handed spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCasting1H;
+
+	/** Is the player currently casting a 2 handed spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCasting2H;
+
+	/** Is the player currently casting a buff spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCastingBuff;
+
+	/** Is the player currently sprinting or not. */
+	bool IsSprinting;
+
+	/** Is the player currently in combat or not. */
+	bool IsInCombat;
+
+	///////// FX //////////
+	///
+	/** Effect played on heal cast. */
+	UPROPERTY(EditAnywhere, Category = "Ability")
+	UParticleSystem* HealFX;
+
+	///////// TIMERS //////////
+	///
+	/** Timer for waiting for the casting animation to finish. */
+	FTimerHandle CastAnimationTimer;
+	
+	/** Timer calling health regeneration. */
+	FTimerHandle HealthRegenTimer;
+	
+	/** Timer for calling mana regeneration. */
+	FTimerHandle ManaRegenTimer;
+	
+	/** Timer for calling stamina regeneration. */
+	FTimerHandle StaminaRegenTimer;
+
+	/** Timer for calling stamina depletion. */
+	FTimerHandle StaminaDepleteTimer;
 
 protected:
 	// APawn interface
@@ -69,4 +180,3 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
-
