@@ -46,6 +46,12 @@ protected:
 	/** Debug command to call TakeDamage */
 	void StartDamage();
 
+	/** Debug command to use ability 1. */
+	void UseAbility1();
+
+	/** Handler for when a casting animation is finished */
+	void OnCastingFinish();
+
 	/** Heals the character */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void Heal(float HealAmount);
@@ -91,6 +97,18 @@ protected:
 
 	/** Is the player currently sprinting or not. */
 	bool IsSprinting;
+
+	/** Is the player currently casting a 1 handed spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCasting1H;
+
+	/** Is the player currently casting a 2 handed spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCasting2H;
+
+	/** Is the player currently casting a buff spell or not. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	bool IsCastingBuff;
 
 protected:
 	// APawn interface

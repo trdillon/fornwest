@@ -67,6 +67,8 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAction("Heal", IE_Pressed, this, &AFornwestCharacter::StartHealing);
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
 
+	PlayerInputComponent->BindAction("Ability 1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
+
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
 
@@ -213,4 +215,18 @@ void AFornwestCharacter::ApplyDamage(float DamageAmount)
 	{
 		PlayerHealth = 0.00f;
 	}
+}
+
+void AFornwestCharacter::UseAbility1()
+{
+	FTimerHandle Timer;
+	IsCasting1H = true;
+	GetWorldTimerManager().SetTimer(Timer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
+}
+
+void AFornwestCharacter::OnCastingFinish()
+{
+	IsCasting1H = false;
+	IsCasting2H = false;
+	IsCastingBuff = false;
 }
