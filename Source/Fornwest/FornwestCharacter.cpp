@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -69,7 +68,6 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
 	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
 
-	PlayerInputComponent->BindAction("Heal", IE_Pressed, this, &AFornwestCharacter::StartHealing);
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
 
 	PlayerInputComponent->BindAction("Ability 1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
@@ -84,19 +82,13 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
-
-	// handle touch devices
-	PlayerInputComponent->BindTouch(IE_Pressed, this, &AFornwestCharacter::TouchStarted);
-	PlayerInputComponent->BindTouch(IE_Released, this, &AFornwestCharacter::TouchStopped);
-
-	// VR headset functionality
-	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AFornwestCharacter::OnResetVR);
 }
 
 void AFornwestCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Regenerate mana if player is not casting.
 	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
 	{
 		this->CurrentMana += 0.1f * DeltaTime;
@@ -106,7 +98,7 @@ void AFornwestCharacter::Tick(float DeltaTime)
 		}
 	}
 	
-	/** Regenerate stamina if not running, or drain it if running. */
+	// Regenerate stamina if player is not sprinting. Drain it if player is sprinting.
 	if (this->CurrentStamina < MaxStamina && !IsSprinting)
 	{
 		this->CurrentStamina += 0.1f * DeltaTime;
@@ -124,27 +116,6 @@ void AFornwestCharacter::Tick(float DeltaTime)
 			StopSprinting();
 		}
 	}
-}
-
-void AFornwestCharacter::OnResetVR()
-{
-	// If Fornwest is added to a project via 'Add Feature' in the Unreal Editor the dependency on HeadMountedDisplay in Fornwest.Build.cs is not automatically propagated
-	// and a linker error will result.
-	// You will need to either:
-	//		Add "HeadMountedDisplay" to [YourProject].Build.cs PublicDependencyModuleNames in order to build successfully (appropriate if supporting VR).
-	// or:
-	//		Comment or delete the call to ResetOrientationAndPosition below (appropriate if not supporting VR)
-	UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition();
-}
-
-void AFornwestCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		Jump();
-}
-
-void AFornwestCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		StopJumping();
 }
 
 void AFornwestCharacter::TurnAtRate(float Rate)
@@ -200,11 +171,6 @@ void AFornwestCharacter::StopSprinting()
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 }
 
-void AFornwestCharacter::StartHealing()
-{
-	Heal(0.02f);
-}
-
 void AFornwestCharacter::StartDamage()
 {
 	ApplyDamage(0.2f);
@@ -213,7 +179,6 @@ void AFornwestCharacter::StartDamage()
 void AFornwestCharacter::Heal(float HealAmount)
 {
 	CurrentHealth += HealAmount;
-
 	if (CurrentHealth > MaxHealth)
 	{
 		CurrentHealth = MaxHealth;
@@ -223,7 +188,6 @@ void AFornwestCharacter::Heal(float HealAmount)
 void AFornwestCharacter::ApplyDamage(float DamageAmount)
 {
 	CurrentHealth -= DamageAmount;
-
 	if (CurrentHealth < 0.00f)
 	{
 		CurrentHealth = 0.00f;
@@ -251,8 +215,11 @@ void AFornwestCharacter::UseAbility1()
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
 	
 	IsCasting1H = true;
+
+	// Wait for the casting to finish before moving on.
 	FTimerHandle Timer;
 	GetWorldTimerManager().SetTimer(Timer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
+	GetWorldTimerManager().ClearTimer(Timer);
 }
 
 void AFornwestCharacter::OnCastingFinish()

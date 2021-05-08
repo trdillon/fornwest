@@ -40,28 +40,22 @@ protected:
 	/** Allows the character to stop sprinting. */
 	void StopSprinting();
 
-	/** Debug command to call Heal */
-	void StartHealing();
-
-	/** Debug command to call TakeDamage */
+	/** Debug command to call TakeDamage. */
 	void StartDamage();
 
 	/** Debug command to use ability 1. */
 	void UseAbility1();
 
-	/** Handler for when a casting animation is finished */
+	/** Handler for when a casting animation is finished. */
 	void OnCastingFinish();
 
-	/** Heals the character */
+	/** Heals the character. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void Heal(float HealAmount);
 
-	/** Damages the character */
+	/** Damages the character. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void ApplyDamage(float DamageAmount);
-
-	/** Resets HMD orientation in VR. */
-	void OnResetVR();
 
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
@@ -81,21 +75,15 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
-	/** Handler for when a touch input begins. */
-	void TouchStarted(ETouchIndex::Type FingerIndex, FVector Location);
-
-	/** Handler for when a touch input stops. */
-	void TouchStopped(ETouchIndex::Type FingerIndex, FVector Location);
-
-	/** The amount of health the player currently has. */
+	/** The max amount of health the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxHealth;
 	
-	/** The amount of mana the player currently has. */
+	/** The max amount of mana the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxMana;
 
-	/** The amount of stamina the player currently has. */
+	/** The max amount of stamina the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxStamina;
 
@@ -126,7 +114,7 @@ protected:
 	/** Is the player currently sprinting or not. */
 	bool IsSprinting;
 
-	/** effect played on heal */
+	/** Effect played on heal cast. */
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	UParticleSystem* HealFX;
 
