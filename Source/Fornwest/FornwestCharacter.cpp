@@ -46,12 +46,17 @@ AFornwestCharacter::AFornwestCharacter()
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
+	// Stats
 	MaxHealth = 1.00f;
 	MaxMana = 1.00f;
 	MaxStamina = 1.00f;
 	CurrentHealth = 1.00f;
 	CurrentMana = 1.00f;
 	CurrentStamina = 1.00f;
+	HealthRegenRate = 0.05f;
+	ManaRegenRate = 0.1f;
+	StaminaRegenRate = 0.1f;
+	StaminaDepleteRate = 0.4f;
 	IsSprinting = false;
 }
 
@@ -88,10 +93,20 @@ void AFornwestCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Regenerate health if player is not in battle.
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		this->CurrentHealth += HealthRegenRate * DeltaTime;
+		if (CurrentHealth > MaxHealth)
+		{
+			CurrentHealth = MaxHealth;
+		}
+	}
+
 	// Regenerate mana if player is not casting.
 	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
 	{
-		this->CurrentMana += 0.1f * DeltaTime;
+		this->CurrentMana += ManaRegenRate * DeltaTime;
 		if (CurrentMana > MaxMana)
 		{
 			CurrentMana = MaxMana;
@@ -101,7 +116,7 @@ void AFornwestCharacter::Tick(float DeltaTime)
 	// Regenerate stamina if player is not sprinting. Drain it if player is sprinting.
 	if (this->CurrentStamina < MaxStamina && !IsSprinting)
 	{
-		this->CurrentStamina += 0.1f * DeltaTime;
+		this->CurrentStamina += StaminaRegenRate * DeltaTime;
 		if (CurrentStamina > MaxStamina)
 		{
 			CurrentStamina = MaxStamina;
@@ -109,7 +124,7 @@ void AFornwestCharacter::Tick(float DeltaTime)
 	}
 	if (IsSprinting)
 	{
-		this->CurrentStamina -= 0.4f * DeltaTime;
+		this->CurrentStamina -= StaminaDepleteRate * DeltaTime;
 		if (CurrentStamina <= 0)
 		{
 			CurrentStamina = 0;

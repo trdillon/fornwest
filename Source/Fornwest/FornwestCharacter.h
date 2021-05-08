@@ -99,6 +99,22 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float CurrentStamina;
 
+	/** The rate at which the player's health regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float HealthRegenRate;
+
+	/** The rate at which the player's mana regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float ManaRegenRate;
+
+	/** The rate at which the player's stamina regenerates. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float StaminaRegenRate;
+
+	/** The rate at which the player's stamina depletes. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float StaminaDepleteRate;
+
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	bool IsCasting1H;
