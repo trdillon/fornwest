@@ -53,10 +53,10 @@ AFornwestCharacter::AFornwestCharacter()
 	CurrentHealth = 1.00f;
 	CurrentMana = 1.00f;
 	CurrentStamina = 1.00f;
-	HealthRegenRate = 0.05f;
-	ManaRegenRate = 0.1f;
-	StaminaRegenRate = 0.1f;
-	StaminaDepleteRate = 0.4f;
+	HealthRegenRate = 0.0025f;
+	ManaRegenRate = 0.0025f;
+	StaminaRegenRate = 0.01f;
+	StaminaDepleteRate = 0.01f;
 	IsSprinting = false;
 }
 
@@ -87,50 +87,6 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
-}
-
-void AFornwestCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	// Regenerate health if player is not in battle.
-	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
-	{
-		this->CurrentHealth += HealthRegenRate * DeltaTime;
-		if (CurrentHealth > MaxHealth)
-		{
-			CurrentHealth = MaxHealth;
-		}
-	}
-
-	// Regenerate mana if player is not casting.
-	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
-	{
-		this->CurrentMana += ManaRegenRate * DeltaTime;
-		if (CurrentMana > MaxMana)
-		{
-			CurrentMana = MaxMana;
-		}
-	}
-	
-	// Regenerate stamina if player is not sprinting. Drain it if player is sprinting.
-	if (this->CurrentStamina < MaxStamina && !IsSprinting)
-	{
-		this->CurrentStamina += StaminaRegenRate * DeltaTime;
-		if (CurrentStamina > MaxStamina)
-		{
-			CurrentStamina = MaxStamina;
-		}
-	}
-	if (IsSprinting)
-	{
-		this->CurrentStamina -= StaminaDepleteRate * DeltaTime;
-		if (CurrentStamina <= 0)
-		{
-			CurrentStamina = 0;
-			StopSprinting();
-		}
-	}
 }
 
 void AFornwestCharacter::TurnAtRate(float Rate)
@@ -178,12 +134,14 @@ void AFornwestCharacter::Sprint()
 {
 	IsSprinting = true;
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
+	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::DepleteStamina, 0.05f, true);
 }
 
 void AFornwestCharacter::StopSprinting()
 {
 	IsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::RegenerateStamina, 0.1f, true, 1.00f);
 }
 
 void AFornwestCharacter::StartDamage()
@@ -232,14 +190,70 @@ void AFornwestCharacter::UseAbility1()
 	IsCasting1H = true;
 
 	// Wait for the casting to finish before moving on.
-	FTimerHandle Timer;
-	GetWorldTimerManager().SetTimer(Timer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
+	GetWorldTimerManager().SetTimer(CastAnimationTimer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
+	GetWorldTimerManager().SetTimer(HealthRegenTimer, this, &AFornwestCharacter::RegenerateHealth, 0.4f, true, 5.00f);
 }
 
 void AFornwestCharacter::OnCastingFinish()
 {
-	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	IsCasting1H = false;
 	IsCasting2H = false;
 	IsCastingBuff = false;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	GetWorldTimerManager().SetTimer(ManaRegenTimer, this, &AFornwestCharacter::RegenerateMana, 0.2f, true, 4.00f);
+}
+
+void AFornwestCharacter::RegenerateHealth()
+{
+	if (CurrentHealth == MaxHealth)
+	{
+		GetWorldTimerManager().ClearTimer(HealthRegenTimer);
+		return;
+	}
+	
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
+	}
+}
+
+void AFornwestCharacter::RegenerateMana()
+{
+	if (CurrentMana == MaxMana)
+	{
+		GetWorldTimerManager().ClearTimer(ManaRegenTimer);
+		return;
+	}
+	
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
+	}
+}
+
+void AFornwestCharacter::RegenerateStamina()
+{
+	if (CurrentStamina == MaxStamina)
+	{
+		GetWorldTimerManager().ClearTimer(StaminaRegenTimer);
+		return;
+	}
+	
+	if (this->CurrentStamina < MaxStamina && !IsSprinting)
+	{
+		CurrentStamina = FMath::Clamp(this->CurrentStamina += StaminaRegenRate, 0.0f, this->MaxStamina);
+	}
+}
+
+void AFornwestCharacter::DepleteStamina()
+{
+	if (IsSprinting)
+	{
+		CurrentStamina = FMath::Clamp(this->CurrentStamina -= StaminaDepleteRate, 0.0f, this->MaxStamina);
+		if (CurrentStamina <= 0)
+		{
+			GetWorldTimerManager().ClearTimer(StaminaDepleteTimer);
+			StopSprinting();
+		}
+	}
 }

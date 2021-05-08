@@ -22,8 +22,6 @@ class AFornwestCharacter : public ACharacter
 public:
 	AFornwestCharacter();
 
-	virtual void Tick(float DeltaTime) override;
-
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -33,7 +31,24 @@ public:
 	float BaseLookUpRate;
 
 protected:
+	/** Called for forwards/backward input */
+	void MoveForward(float Value);
 
+	/** Called for side to side input */
+	void MoveRight(float Value);
+
+	/** 
+	* Called via input to turn at a given rate. 
+	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	*/
+	void TurnAtRate(float Rate);
+
+	/**
+	* Called via input to turn look up/down at a given rate. 
+	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
+	*/
+	void LookUpAtRate(float Rate);
+	
 	/** Allows the character to begin sprinting. */
 	void Sprint();
 
@@ -49,6 +64,18 @@ protected:
 	/** Handler for when a casting animation is finished. */
 	void OnCastingFinish();
 
+	/** Regenerates player health. */
+	void RegenerateHealth();
+
+	/** Regenerates player mana. */
+	void RegenerateMana();
+
+	/** Regenerates player stamina. */
+	void RegenerateStamina();
+
+	/** Depletes player stamina. */
+	void DepleteStamina();
+
 	/** Heals the character. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void Heal(float HealAmount);
@@ -56,25 +83,9 @@ protected:
 	/** Damages the character. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void ApplyDamage(float DamageAmount);
-
-	/** Called for forwards/backward input */
-	void MoveForward(float Value);
-
-	/** Called for side to side input */
-	void MoveRight(float Value);
-
-	/** 
-	 * Called via input to turn at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void TurnAtRate(float Rate);
-
-	/**
-	 * Called via input to turn look up/down at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void LookUpAtRate(float Rate);
-
+	
+	///////// STATS //////////
+	///
 	/** The max amount of health the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxHealth;
@@ -114,7 +125,9 @@ protected:
 	/** The rate at which the player's stamina depletes. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float StaminaDepleteRate;
-
+	
+	///////// STATUS //////////
+	///
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	bool IsCasting1H;
@@ -130,9 +143,31 @@ protected:
 	/** Is the player currently sprinting or not. */
 	bool IsSprinting;
 
+	/** Is the player currently in combat or not. */
+	bool IsInCombat;
+
+	///////// FX //////////
+	///
 	/** Effect played on heal cast. */
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	UParticleSystem* HealFX;
+
+	///////// TIMERS //////////
+	///
+	/** Timer for waiting for the casting animation to finish. */
+	FTimerHandle CastAnimationTimer;
+	
+	/** Timer calling health regeneration. */
+	FTimerHandle HealthRegenTimer;
+	
+	/** Timer for calling mana regeneration. */
+	FTimerHandle ManaRegenTimer;
+	
+	/** Timer for calling stamina regeneration. */
+	FTimerHandle StaminaRegenTimer;
+
+	/** Timer for calling stamina depletion. */
+	FTimerHandle StaminaDepleteTimer;
 
 protected:
 	// APawn interface
