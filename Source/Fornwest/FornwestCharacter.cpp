@@ -75,7 +75,7 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
 
-	PlayerInputComponent->BindAction("Ability 1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
+	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);

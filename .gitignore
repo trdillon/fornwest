@@ -607,3 +607,10 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+# Big Content Folders
+Content/InfinityBladeAdversaries/*
+Content/InfinityBladeEffects/*
+Content/InfinityBladeGrasslands/*
+Content/InfinityBladeWeapons/*
+Content/Infinity_Blade_Assets/*
+**/Animation/*
