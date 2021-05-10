@@ -7,6 +7,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Item/InventoryComponent.h"
+#include "Item/Item.h"
 #include "Kismet/GameplayStatics.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -14,10 +16,12 @@
 
 AFornwestCharacter::AFornwestCharacter()
 {
-	// Set size for collision capsule
+	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
+	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	// Set size for collision capsule.
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-	// set our turn rates for input
+	// Set our turn rates for input.
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
 
@@ -26,38 +30,44 @@ AFornwestCharacter::AFornwestCharacter()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	// Configure character movement
+	// Configure character movement.
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate.
 	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.2f;
 
-	// Create a camera boom (pulls in towards the player if there is a collision)
+	// Create a camera boom (pulls in towards the player if there is a collision).
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
-	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character.
+	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller.
 
-	// Create a follow camera
+	// Create a follow camera.
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
+	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm.
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	// Create the inventory.
+	Inventory = CreateDefaultSubobject<UInventoryComponent>("Inventory");
+	Inventory->SlotLimit = 20;
+	Inventory->WeightLimit = 50.0f;
 
 	// Stats
-	MaxHealth = 1.00f;
-	MaxMana = 1.00f;
-	MaxStamina = 1.00f;
-	CurrentHealth = 1.00f;
-	CurrentMana = 1.00f;
-	CurrentStamina = 1.00f;
-	HealthRegenRate = 0.0025f;
-	ManaRegenRate = 0.0025f;
-	StaminaRegenRate = 0.01f;
-	StaminaDepleteRate = 0.01f;
+	MaxHealth = 100.0f;
+	MaxMana = 100.0f;
+	MaxStamina = 100.0f;
+	CurrentHealth = 100.0f;
+	CurrentMana = 100.0f;
+	CurrentStamina = 100.0f;
+	HealthRegenRate = 0.25f;
+	ManaRegenRate = 0.25f;
+	StaminaRegenRate = 1.0f;
+	StaminaDepleteRate = 1.0f;
+	
 	IsSprinting = false;
+	IsCasting1H = false;
+	IsCasting2H = false;
+	IsCastingBuff = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -146,7 +156,7 @@ void AFornwestCharacter::StopSprinting()
 
 void AFornwestCharacter::StartDamage()
 {
-	ApplyDamage(0.2f);
+	ApplyDamage(2.0f);
 }
 
 void AFornwestCharacter::Heal(float HealAmount)
@@ -156,6 +166,8 @@ void AFornwestCharacter::Heal(float HealAmount)
 	{
 		CurrentHealth = MaxHealth;
 	}
+
+	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::ApplyDamage(float DamageAmount)
@@ -164,6 +176,17 @@ void AFornwestCharacter::ApplyDamage(float DamageAmount)
 	if (CurrentHealth < 0.00f)
 	{
 		CurrentHealth = 0.00f;
+	}
+
+	OnHealthChanged.Broadcast();
+}
+
+void AFornwestCharacter::UseItem(UItem* Item)
+{
+	if (Item)
+	{
+		Item->Use(this);
+		Item->OnUse(this); // Blueprint version
 	}
 }
 
@@ -174,7 +197,7 @@ void AFornwestCharacter::UseAbility1()
 		return;
 	}
 
-	if (CurrentMana < 0.15f)
+	if (CurrentMana < 15.0f)
 	{
 		return;
 	}
@@ -182,8 +205,10 @@ void AFornwestCharacter::UseAbility1()
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
 
-	CurrentMana -= 0.15f;
-	Heal(0.15f);
+	CurrentMana -= 15.0f;
+	OnManaChanged.Broadcast();
+	Heal(15.0f);
+	OnHealthChanged.Broadcast();
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
 	
@@ -215,6 +240,8 @@ void AFornwestCharacter::RegenerateHealth()
 	{
 		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
 	}
+
+	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateMana()
@@ -229,6 +256,8 @@ void AFornwestCharacter::RegenerateMana()
 	{
 		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
 	}
+
+	OnManaChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateStamina()

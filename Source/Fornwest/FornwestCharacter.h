@@ -6,6 +6,10 @@
 #include "GameFramework/Character.h"
 #include "FornwestCharacter.generated.h"
 
+// Blueprints can bind to these to update the UI.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHealthChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnManaChanged);
+
 UCLASS(config=Game)
 class AFornwestCharacter : public ACharacter
 {
@@ -19,6 +23,10 @@ class AFornwestCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 
+	/** Player inventory component */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class UInventoryComponent* Inventory;
+
 public:
 	AFornwestCharacter();
 
@@ -29,6 +37,26 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
+
+	/** Heals the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void Heal(float HealAmount);
+
+	/** Damages the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void ApplyDamage(float DamageAmount);
+
+	/** Uses an item. */
+	UFUNCTION(BlueprintCallable, Category = "Items")
+	void UseItem(class UItem* Item);
+
+	/** Health change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnHealthChanged OnHealthChanged;
+
+	/** Mana change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnManaChanged OnManaChanged;
 
 protected:
 	/** Called for forwards/backward input */
@@ -75,14 +103,6 @@ protected:
 
 	/** Depletes player stamina. */
 	void DepleteStamina();
-
-	/** Heals the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void Heal(float HealAmount);
-
-	/** Damages the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void ApplyDamage(float DamageAmount);
 	
 	///////// STATS //////////
 	///
