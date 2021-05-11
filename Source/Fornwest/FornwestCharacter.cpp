@@ -7,7 +7,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Item/InventoryComponent.h"
 #include "Item/Item.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -47,11 +46,6 @@ AFornwestCharacter::AFornwestCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm.
 
-	// Create the inventory.
-	Inventory = CreateDefaultSubobject<UInventoryComponent>("Inventory");
-	Inventory->SlotLimit = 20;
-	Inventory->WeightLimit = 50.0f;
-
 	// Stats
 	MaxHealth = 100.0f;
 	MaxMana = 100.0f;
@@ -70,6 +64,19 @@ AFornwestCharacter::AFornwestCharacter()
 	IsCastingBuff = false;
 }
 
+void AFornwestCharacter::BeginPlay()
+{
+	Inventory.SetNum(24);
+	CurrentInteractable = nullptr;
+}
+
+void AFornwestCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	CheckForInteractables();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Input
 
@@ -79,24 +86,22 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-
 	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
 	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
-
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
-
 	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
-
-	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
-
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
+	PlayerInputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AFornwestCharacter::ToggleInventory);
+	
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
-	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
+	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
+	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
 }
 
 void AFornwestCharacter::TurnAtRate(float Rate)
@@ -138,6 +143,52 @@ void AFornwestCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+}
+
+void AFornwestCharacter::ToggleInventory()
+{
+	//TODO - toggle inventory implement here, remove from blueprint
+}
+
+void AFornwestCharacter::Interact()
+{
+	if (CurrentInteractable != nullptr)
+	{
+		CurrentInteractable->Interact_Implementation();
+	}
+}
+
+void AFornwestCharacter::CheckForInteractables()
+{
+	// Get the start and end traces.
+	int32 Range = 500;
+	FVector StartTrace = FollowCamera->GetComponentLocation();
+	FVector EndTrace = (FollowCamera->GetForwardVector() * Range) + StartTrace;
+
+	// Declare the hit result of the ray cast.
+	FHitResult HitResult;
+
+	// Ignore the player so we don't collide with it.
+	FCollisionQueryParams CollisionQueryParams;
+	CollisionQueryParams.AddIgnoredActor(this);
+
+	// Cast the line trace.
+	GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECC_WorldDynamic, CollisionQueryParams);
+
+	// Attempt to cast to interactable.
+	AInteractable* PossibleInteractable = Cast<AInteractable>(HitResult.GetActor());
+
+	// If cast to interactable failed then we return.
+	if (PossibleInteractable == nullptr)
+	{
+		ActionText = FString("");
+		CurrentInteractable = nullptr;
+		return;
+	}
+
+	// Set the current interactable so the player can interact with it.
+	CurrentInteractable = PossibleInteractable;
+	ActionText = PossibleInteractable->ActionText;
 }
 
 void AFornwestCharacter::Sprint()
@@ -187,6 +238,60 @@ void AFornwestCharacter::UseItem(UItem* Item)
 	{
 		Item->Use(this);
 		Item->OnUse(this); // Blueprint version
+	}
+}
+
+void AFornwestCharacter::UpdateMoney(int32 Amount)
+{
+	Money += Amount;
+}
+
+bool AFornwestCharacter::AddItemToInventory(APickup* Item)
+{
+	if (Item != nullptr)
+	{
+		// First slot with a nullptr is our first available spot.
+		const int32 AvailableSlot = Inventory.Find(nullptr);
+
+		// If the available spot is within the array we add it.
+		if (AvailableSlot != INDEX_NONE)
+		{
+			Inventory[AvailableSlot] = Item;
+			return true;
+		}
+		//TODO - show user feedback about full inventory
+		return false;
+	}
+
+	return false;
+}
+
+FString AFornwestCharacter::GetNameAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		return Inventory[Slot]->Name;
+	}
+
+	return FString("");
+}
+
+UTexture2D* AFornwestCharacter::GetThumbnailAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		return Inventory[Slot]->Thumbnail;
+	}
+
+	return nullptr;
+}
+
+void AFornwestCharacter::UseAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		Inventory[Slot]->Use_Implementation();
+		Inventory[Slot] = nullptr;
 	}
 }
 
