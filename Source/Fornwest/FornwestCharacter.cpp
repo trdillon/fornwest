@@ -196,7 +196,7 @@ void AFornwestCharacter::CheckForInteractables()
 	// If cast to interactable failed then we return.
 	if (PossibleInteractable == nullptr)
 	{
-		ActionText = FString("");
+		ActionText = FText::FromString("");
 		CurrentInteractable = nullptr;
 		return;
 	}
@@ -281,14 +281,14 @@ bool AFornwestCharacter::AddItemToInventory(APickup* Item)
 	return false;
 }
 
-FString AFornwestCharacter::GetNameAtInventorySlot(int32 Slot)
+FText AFornwestCharacter::GetNameAtInventorySlot(int32 Slot)
 {
 	if (Inventory[Slot] != nullptr)
 	{
 		return Inventory[Slot]->Name;
 	}
 
-	return FString("");
+	return FText::FromString("");
 }
 
 UTexture2D* AFornwestCharacter::GetThumbnailAtInventorySlot(int32 Slot)

@@ -62,7 +62,7 @@ public:
 
 	/** The action text that displays when the player focuses on an interactable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
-	FString ActionText;
+	FText ActionText;
 
 	/** The amount of money the player has. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD", meta = (ClampMin = 0))
@@ -80,7 +80,7 @@ public:
 
 	/** Gets the name of the item at a given inventory slow. */
 	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
-	FString GetNameAtInventorySlot(int32 Slot);
+	FText GetNameAtInventorySlot(int32 Slot);
 
 	/** Gets the thumbnail for an item at a given inventory slot. */
 	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
