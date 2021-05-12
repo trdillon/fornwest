@@ -110,9 +110,9 @@ bool AFornwestGameMode::ApplyHUD(TSubclassOf<UUserWidget> WidgetToApply, bool bS
 		// Set the input mode.
 		if (bIsHUDClassUI)
 		{
-			CurrentWidget->SetUserFocus(Controller);
 			Controller->SetIgnoreLookInput(true);
 			Controller->SetIgnoreMoveInput(true);
+			CurrentWidget->SetUserFocus(Controller);
 		}
 		else
 		{
