@@ -38,7 +38,8 @@ public:
 	void SetHUDState(uint8 NewState);
 
 	/** Applies a HUD to the screen and returns whether or not it was successfully applied. */
-	bool ApplyHUD(TSubclassOf<class UUserWidget> WidgetToApply, bool bShowMouseCursor, bool bEnableClickEvents);
+	bool ApplyHUD(TSubclassOf<class UUserWidget> WidgetToApply, bool bShowMouseCursor, bool bEnableClickEvents,
+		bool bIsHUDClassUI);
 
 protected:
 

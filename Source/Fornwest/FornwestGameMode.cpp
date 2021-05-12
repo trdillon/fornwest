@@ -38,42 +38,42 @@ void AFornwestGameMode::ChangeHUD()
 	{
 		case HS_Ingame:
 		{
-			ApplyHUD(ActionBarHUDClass, false, false);
+			ApplyHUD(ActionBarHUDClass, false, false, false);
 			break;
 		}
 		case HS_Inventory:
 		{
-			ApplyHUD(InventoryHUDClass, true, true);
+			ApplyHUD(InventoryHUDClass, true, true, true);
 			break;
 		}
 		case HS_Stats:
 		{
-			ApplyHUD(StatsHUDClass, true, true);
+			ApplyHUD(StatsHUDClass, true, true, true);
 			break;
 		}
 		case HS_Skills:
 		{
-			ApplyHUD(SkillsHUDClass, true, true);
+			ApplyHUD(SkillsHUDClass, true, true, true);
 			break;
 		}
 		case HS_Shop:
 		{
-			ApplyHUD(ShopHUDClass, true, true);
+			ApplyHUD(ShopHUDClass, true, true, true);
 			break;
 		}
 		case HS_Crafting:
 		{
-			ApplyHUD(CraftingHUDClass, true, true);
+			ApplyHUD(CraftingHUDClass, true, true, true);
 			break;
 		}
 		case HS_Pause:
 		{
-			ApplyHUD(PauseHUDClass, true, true);
+			ApplyHUD(PauseHUDClass, true, true, true);
 			break;
 		}
 		default:
 		{
-			ApplyHUD(ActionBarHUDClass, false, false);
+			ApplyHUD(ActionBarHUDClass, false, false, false);
 			break;
 		}
 	}
@@ -91,7 +91,7 @@ void AFornwestGameMode::SetHUDState(uint8 NewState)
 }
 
 bool AFornwestGameMode::ApplyHUD(TSubclassOf<UUserWidget> WidgetToApply, bool bShowMouseCursor,
-	bool bEnableClickEvents)
+	bool bEnableClickEvents, bool bIsHUDClassUI)
 {
 	// Get a reference to the player and the controller.
 	AFornwestCharacter* Character = Cast<AFornwestCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
@@ -100,12 +100,25 @@ bool AFornwestGameMode::ApplyHUD(TSubclassOf<UUserWidget> WidgetToApply, bool bS
 	// Null check the widget we want to apply.
 	if (WidgetToApply != nullptr)
 	{
+		// Create the widget.
+		CurrentWidget = CreateWidget<UUserWidget>(GetWorld(), WidgetToApply);
+
 		// Set mouse cursor and click events.
 		Controller->bShowMouseCursor = bShowMouseCursor;
 		Controller->bEnableClickEvents = bEnableClickEvents;
 
-		// Create the widget.
-		CurrentWidget = CreateWidget<UUserWidget>(GetWorld(), WidgetToApply);
+		// Set the input mode.
+		if (bIsHUDClassUI)
+		{
+			CurrentWidget->SetUserFocus(Controller);
+			Controller->SetIgnoreLookInput(true);
+			Controller->SetIgnoreMoveInput(true);
+		}
+		else
+		{
+			Controller->SetIgnoreLookInput(false);
+			Controller->SetIgnoreMoveInput(false);
+		}
 
 		// If we have a widget then we add it to the viewport.
 		if (CurrentWidget != nullptr)

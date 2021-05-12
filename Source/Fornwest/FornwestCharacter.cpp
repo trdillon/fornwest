@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
+
+#include "FornwestGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -150,7 +152,17 @@ void AFornwestCharacter::MoveRight(float Value)
 
 void AFornwestCharacter::ToggleInventory()
 {
-	//TODO - toggle inventory implement here, remove from blueprint
+	// Check if inventory is already open, if so then close it.
+	AFornwestGameMode* GameMode = Cast<AFornwestGameMode>(GetWorld()->GetAuthGameMode());
+
+	if (GameMode->GetHUDState() == GameMode->HS_Ingame)
+	{
+		GameMode->SetHUDState(GameMode->HS_Inventory);
+	}
+	else
+	{
+		GameMode->SetHUDState(GameMode->HS_Ingame);
+	}
 }
 
 void AFornwestCharacter::Interact()
