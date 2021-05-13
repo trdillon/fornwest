@@ -36,8 +36,6 @@ class AFornwestCharacter : public ACharacter
 public:
 	AFornwestCharacter();
 
-	virtual void BeginPlay() override;
-
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -56,10 +54,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void ApplyDamage(float DamageAmount);
 
-	/** Uses an item. 
-	UFUNCTION(BlueprintCallable, Category = "Items")
-	void UseItem(class UItem* Item);
-	*/
 	/** Health change delegate. */
 	UPROPERTY(BlueprintAssignable, Category = "Stats")
 	FOnHealthChanged OnHealthChanged;
@@ -90,6 +84,9 @@ protected:
 	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	*/
 	void LookUpAtRate(float Rate);
+
+	/** Interacts with the interactable that player is currently focused on. */
+	void Interact();
 	
 	/** Allows the character to begin sprinting. */
 	void Sprint();
@@ -199,18 +196,15 @@ private:
 
 	/** Toggle the inventory window open and closed. */
 	void ToggleInventory();
-
-	/** Interact with an interactable object if there is one closed enough. */
-	void Interact();
 	
 	/** Collects any auto pickups that the player comes in range of. */
 	void CollectAutoPickups();
 	
 	/** Uses a line cast to check for interactables. Called on Tick. */
 	void CheckForInteractables();
-
-	/** The interactable the player is currently focused on. */
-	AInteractable* CurrentInteractable;
+	
+	/** The interactable currently focused on. */
+	class AInteractable* CurrentInteractable;
 
 protected:
 	/** APawn interface */

@@ -1,15 +1,16 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
-#include "FornwestController.h"
 #include "FornwestGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Core/Interactable.h"
 #include "Core/Components/InventoryComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Items/AutoPickup.h"
 #include "Kismet/GameplayStatics.h"
 
 AFornwestCharacter::AFornwestCharacter()
@@ -70,12 +71,6 @@ AFornwestCharacter::AFornwestCharacter()
 	IsCasting1H = false;
 	IsCasting2H = false;
 	IsCastingBuff = false;
-}
-
-void AFornwestCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-	CurrentInteractable = nullptr;
 }
 
 void AFornwestCharacter::Tick(float DeltaSeconds)
@@ -150,6 +145,14 @@ void AFornwestCharacter::MoveRight(float Value)
 	}
 }
 
+void AFornwestCharacter::Interact()
+{
+	if (CurrentInteractable)
+	{
+		CurrentInteractable->Interact(this);
+	}
+}
+
 void AFornwestCharacter::ToggleInventory()
 {
 	// Check if inventory is already open, if so then close it.
@@ -165,35 +168,23 @@ void AFornwestCharacter::ToggleInventory()
 	}
 }
 
-void AFornwestCharacter::Interact()
-{
-	if (CurrentInteractable != nullptr)
-	{
-		CurrentInteractable->Interact_Implementation();
-	}
-}
-
 void AFornwestCharacter::CollectAutoPickups()
 {
 	// Get all overlapping AActors and store them in an array.
 	TArray<AActor*> CollectedActors;
 	CollectionSphere->GetOverlappingActors(CollectedActors);
 
-	//AFornwestController* Controller = Cast<AFornwestController>(GetController());
-
 	// Loop the array and test if each can be picked up.
-	for (int32 ICollected = 0; ICollected < CollectedActors.Num(); ++ICollected)
+	for (int32 Collected = 0; Collected < CollectedActors.Num(); ++Collected)
 	{
-		/*
 		// Cast the actor to AAutoPickup.
-		AAutoPickup* const TestPickup = Cast<AAutoPickup>(CollectedActors[ICollected]);
+		AAutoPickup* const TestPickup = Cast<AAutoPickup>(CollectedActors[Collected]);
 		
 		// If the cast is successful and the pickup is valid and active then collect it.
 		if (TestPickup && !TestPickup->IsPendingKill())
 		{
-			TestPickup->Collect(Controller);
+			TestPickup->Collect(this);
 		}
-		*/
 	}
 }
 
@@ -204,30 +195,26 @@ void AFornwestCharacter::CheckForInteractables()
 	FVector StartTrace = FollowCamera->GetComponentLocation();
 	FVector EndTrace = (FollowCamera->GetForwardVector() * Range) + StartTrace;
 
-	// Ignore the player so we don't collide with it.
+	// Ignore the player because we don't want a hit result on it.
 	FCollisionQueryParams CollisionQueryParams;
 	CollisionQueryParams.AddIgnoredActor(this);
 
-	// Declare the hit result of the ray cast.
-	FHitResult HitResult;
-
 	// Cast the line trace.
-	GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECC_WorldDynamic, CollisionQueryParams);
-
-	// Attempt to cast to interactable.
-	AInteractable* PossibleInteractable = Cast<AInteractable>(HitResult.GetActor());
-
-	// If cast to interactable failed then we return.
-	if (PossibleInteractable == nullptr)
+	FHitResult HitResult;
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace,ECC_WorldDynamic, CollisionQueryParams))
 	{
-		ActionText = FText::FromString("");
-		CurrentInteractable = nullptr;
-		return;
+		// Attempt to cast to interactable if we have a hit result.
+		AInteractable* Interactable = Cast<AInteractable>(HitResult.GetActor());
+
+		// If we found an interactable then set it as the current interactable.
+		if (Interactable)
+		{
+			CurrentInteractable = Interactable;
+			return;
+		}
 	}
 
-	// Set the current interactable and show the action text.
-	CurrentInteractable = PossibleInteractable;
-	ActionText = PossibleInteractable->ActionText;
+	CurrentInteractable = nullptr;
 }
 
 void AFornwestCharacter::Sprint()
@@ -277,16 +264,7 @@ void AFornwestCharacter::ApplyDamage(const float DamageAmount)
 	// Update the UI.
 	OnHealthChanged.Broadcast();
 }
-/* this needs to be refactored
-void AFornwestCharacter::UseItem(UItem* Item)
-{
-	if (Item)
-	{
-		Item->Use(this);
-		Item->OnUse(this); // Blueprint version
-	}
-}
-*/
+
 void AFornwestCharacter::UseAbility1()
 {
 	if (IsCasting1H || IsCasting2H || IsCastingBuff)

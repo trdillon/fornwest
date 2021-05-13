@@ -49,7 +49,7 @@ void AFornwestGameMode::ChangeHUD()
 	{
 		case HS_Ingame:
 		{
-			ApplyHUD(ActionBarHUDClass, false, false, false);
+			ApplyHUD(IngameHUDClass, false, false, false);
 			break;
 		}
 		case HS_Inventory:
@@ -84,7 +84,7 @@ void AFornwestGameMode::ChangeHUD()
 		}
 		default:
 		{
-			ApplyHUD(ActionBarHUDClass, false, false, false);
+			ApplyHUD(IngameHUDClass, false, false, false);
 			break;
 		}
 	}

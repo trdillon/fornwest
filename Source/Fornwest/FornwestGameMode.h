@@ -53,7 +53,7 @@ protected:
 
 	/** The action bar HUD shown when the player is in the game. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "HUD Widgets", meta = (BlueprintProtected = "true"))
-	TSubclassOf<class UUserWidget> ActionBarHUDClass;
+	TSubclassOf<class UUserWidget> IngameHUDClass;
 
 	/** The inventory HUD shown when the player is in the inventory window. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "HUD Widgets", meta = (BlueprintProtected = "true"))
