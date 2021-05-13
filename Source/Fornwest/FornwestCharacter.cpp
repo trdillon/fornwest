@@ -1,12 +1,15 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
+
+#include "FornwestGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Item/Item.h"
 #include "Kismet/GameplayStatics.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -14,10 +17,13 @@
 
 AFornwestCharacter::AFornwestCharacter()
 {
-	// Set size for collision capsule
+	PrimaryActorTick.bCanEverTick = true;
+	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
+	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	// Set size for collision capsule.
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-	// set our turn rates for input
+	// Set our turn rates for input.
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
 
@@ -26,38 +32,54 @@ AFornwestCharacter::AFornwestCharacter()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	// Configure character movement
+	// Configure character movement.
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate.
 	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.2f;
 
-	// Create a camera boom (pulls in towards the player if there is a collision)
+	// Create a camera boom (pulls in towards the player if there is a collision).
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
-	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character.
+	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller.
 
-	// Create a follow camera
+	// Create a follow camera.
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
-
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
+	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm.
 
 	// Stats
-	MaxHealth = 1.00f;
-	MaxMana = 1.00f;
-	MaxStamina = 1.00f;
-	CurrentHealth = 1.00f;
-	CurrentMana = 1.00f;
-	CurrentStamina = 1.00f;
-	HealthRegenRate = 0.0025f;
-	ManaRegenRate = 0.0025f;
-	StaminaRegenRate = 0.01f;
-	StaminaDepleteRate = 0.01f;
+	MaxHealth = 100.0f;
+	MaxMana = 100.0f;
+	MaxStamina = 100.0f;
+	CurrentHealth = 100.0f;
+	CurrentMana = 100.0f;
+	CurrentStamina = 100.0f;
+	HealthRegenRate = 0.25f;
+	ManaRegenRate = 0.25f;
+	StaminaRegenRate = 1.0f;
+	StaminaDepleteRate = 1.0f;
+	
 	IsSprinting = false;
+	IsCasting1H = false;
+	IsCasting2H = false;
+	IsCastingBuff = false;
+}
+
+void AFornwestCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	Inventory.SetNum(24);
+	CurrentInteractable = nullptr;
+}
+
+void AFornwestCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	CheckForInteractables();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -69,24 +91,22 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-
 	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
 	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
-
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
-
 	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
-
-	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
-
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
+	PlayerInputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AFornwestCharacter::ToggleInventory);
+	
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
-	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
+	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
+	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
 }
 
 void AFornwestCharacter::TurnAtRate(float Rate)
@@ -130,6 +150,62 @@ void AFornwestCharacter::MoveRight(float Value)
 	}
 }
 
+void AFornwestCharacter::ToggleInventory()
+{
+	// Check if inventory is already open, if so then close it.
+	AFornwestGameMode* GameMode = Cast<AFornwestGameMode>(GetWorld()->GetAuthGameMode());
+
+	if (GameMode->GetHUDState() == GameMode->HS_Ingame)
+	{
+		GameMode->SetHUDState(GameMode->HS_Inventory);
+	}
+	else
+	{
+		GameMode->SetHUDState(GameMode->HS_Ingame);
+	}
+}
+
+void AFornwestCharacter::Interact()
+{
+	if (CurrentInteractable != nullptr)
+	{
+		CurrentInteractable->Interact_Implementation();
+	}
+}
+
+void AFornwestCharacter::CheckForInteractables()
+{
+	// Get the start and end traces.
+	int32 Range = 500;
+	FVector StartTrace = FollowCamera->GetComponentLocation();
+	FVector EndTrace = (FollowCamera->GetForwardVector() * Range) + StartTrace;
+
+	// Declare the hit result of the ray cast.
+	FHitResult HitResult;
+
+	// Ignore the player so we don't collide with it.
+	FCollisionQueryParams CollisionQueryParams;
+	CollisionQueryParams.AddIgnoredActor(this);
+
+	// Cast the line trace.
+	GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECC_WorldDynamic, CollisionQueryParams);
+
+	// Attempt to cast to interactable.
+	AInteractable* PossibleInteractable = Cast<AInteractable>(HitResult.GetActor());
+
+	// If cast to interactable failed then we return.
+	if (PossibleInteractable == nullptr)
+	{
+		ActionText = FString("");
+		CurrentInteractable = nullptr;
+		return;
+	}
+
+	// Set the current interactable so the player can interact with it.
+	CurrentInteractable = PossibleInteractable;
+	ActionText = PossibleInteractable->ActionText;
+}
+
 void AFornwestCharacter::Sprint()
 {
 	IsSprinting = true;
@@ -146,7 +222,7 @@ void AFornwestCharacter::StopSprinting()
 
 void AFornwestCharacter::StartDamage()
 {
-	ApplyDamage(0.2f);
+	ApplyDamage(2.0f);
 }
 
 void AFornwestCharacter::Heal(float HealAmount)
@@ -156,6 +232,8 @@ void AFornwestCharacter::Heal(float HealAmount)
 	{
 		CurrentHealth = MaxHealth;
 	}
+
+	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::ApplyDamage(float DamageAmount)
@@ -164,6 +242,71 @@ void AFornwestCharacter::ApplyDamage(float DamageAmount)
 	if (CurrentHealth < 0.00f)
 	{
 		CurrentHealth = 0.00f;
+	}
+
+	OnHealthChanged.Broadcast();
+}
+
+void AFornwestCharacter::UseItem(UItem* Item)
+{
+	if (Item)
+	{
+		Item->Use(this);
+		Item->OnUse(this); // Blueprint version
+	}
+}
+
+void AFornwestCharacter::UpdateMoney(int32 Amount)
+{
+	Money += Amount;
+}
+
+bool AFornwestCharacter::AddItemToInventory(APickup* Item)
+{
+	if (Item != nullptr)
+	{
+		// First slot with a nullptr is our first available spot.
+		const int32 AvailableSlot = Inventory.Find(nullptr);
+
+		// If the available spot is within the array we add it.
+		if (AvailableSlot != INDEX_NONE)
+		{
+			Inventory[AvailableSlot] = Item;
+			return true;
+		}
+		//TODO - show user feedback about full inventory
+		return false;
+	}
+
+	return false;
+}
+
+FString AFornwestCharacter::GetNameAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		return Inventory[Slot]->Name;
+	}
+
+	return FString("");
+}
+
+UTexture2D* AFornwestCharacter::GetThumbnailAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		return Inventory[Slot]->Thumbnail;
+	}
+
+	return nullptr;
+}
+
+void AFornwestCharacter::UseAtInventorySlot(int32 Slot)
+{
+	if (Inventory[Slot] != nullptr)
+	{
+		Inventory[Slot]->Use_Implementation();
+		Inventory[Slot] = nullptr;
 	}
 }
 
@@ -174,7 +317,7 @@ void AFornwestCharacter::UseAbility1()
 		return;
 	}
 
-	if (CurrentMana < 0.15f)
+	if (CurrentMana < 15.0f)
 	{
 		return;
 	}
@@ -182,8 +325,10 @@ void AFornwestCharacter::UseAbility1()
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
 
-	CurrentMana -= 0.15f;
-	Heal(0.15f);
+	CurrentMana -= 15.0f;
+	OnManaChanged.Broadcast();
+	Heal(15.0f);
+	OnHealthChanged.Broadcast();
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
 	
@@ -215,6 +360,8 @@ void AFornwestCharacter::RegenerateHealth()
 	{
 		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
 	}
+
+	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateMana()
@@ -229,6 +376,8 @@ void AFornwestCharacter::RegenerateMana()
 	{
 		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
 	}
+
+	OnManaChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateStamina()

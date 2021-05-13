@@ -4,7 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Core/Interactable.h"
+#include "Core/Pickup.h"
 #include "FornwestCharacter.generated.h"
+
+// Blueprints can bind to these to update the UI.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHealthChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnManaChanged);
 
 UCLASS(config=Game)
 class AFornwestCharacter : public ACharacter
@@ -22,6 +28,10 @@ class AFornwestCharacter : public ACharacter
 public:
 	AFornwestCharacter();
 
+	virtual void BeginPlay() override;
+
+	virtual void Tick(float DeltaSeconds) override;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -29,6 +39,56 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
+
+	/** Heals the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void Heal(float HealAmount);
+
+	/** Damages the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void ApplyDamage(float DamageAmount);
+
+	/** Uses an item. */
+	UFUNCTION(BlueprintCallable, Category = "Items")
+	void UseItem(class UItem* Item);
+
+	/** Health change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnHealthChanged OnHealthChanged;
+
+	/** Mana change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnManaChanged OnManaChanged;
+
+	/** The action text that displays when the player focuses on an interactable. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FString ActionText;
+
+	/** The amount of money the player has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD", meta = (ClampMin = 0))
+	int32 Money;
+
+	/** Updates the amount of money the player has.
+	@param Amount This is the amount to update the money by. Can be positive or negative.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
+	void UpdateMoney(int32 Amount);
+
+	/** Adds an item to the player's inventory. */
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	bool AddItemToInventory(APickup* Item);
+
+	/** Gets the name of the item at a given inventory slow. */
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	FString GetNameAtInventorySlot(int32 Slot);
+
+	/** Gets the thumbnail for an item at a given inventory slot. */
+	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
+	UTexture2D* GetThumbnailAtInventorySlot(int32 Slot);
+
+	/** Uses the item at a given inventory slot. */
+	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
+	void UseAtInventorySlot(int32 Slot);
 
 protected:
 	/** Called for forwards/backward input */
@@ -75,14 +135,6 @@ protected:
 
 	/** Depletes player stamina. */
 	void DepleteStamina();
-
-	/** Heals the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void Heal(float HealAmount);
-
-	/** Damages the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void ApplyDamage(float DamageAmount);
 	
 	///////// STATS //////////
 	///
@@ -168,6 +220,24 @@ protected:
 
 	/** Timer for calling stamina depletion. */
 	FTimerHandle StaminaDepleteTimer;
+
+private:
+
+	/** Toggle the inventory window open and closed. */
+	void ToggleInventory();
+
+	/** Interact with an interactable object if there is one closed enough. */
+	void Interact();
+	
+	/** Uses a line cast to check for interactables. Called on Tick. */
+	void CheckForInteractables();
+
+	/** The interactable the player is currently focused on. */
+	AInteractable* CurrentInteractable;
+
+	/** The player's inventory. */
+	UPROPERTY(EditAnywhere)
+	TArray<APickup*> Inventory;
 
 protected:
 	// APawn interface
