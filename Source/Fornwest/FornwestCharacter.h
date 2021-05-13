@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Engine.h"
 #include "GameFramework/Character.h"
+#include "Core/Interactable.h"
+#include "Core/Components/InventoryComponent.h"
 #include "FornwestCharacter.generated.h"
+
+// Blueprints can bind to these to update the UI.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHealthChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnManaChanged);
 
 UCLASS(config=Game)
 class AFornwestCharacter : public ACharacter
@@ -18,9 +24,19 @@ class AFornwestCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
+	
+	/** Collection sphere */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class USphereComponent* CollectionSphere;
+
+	/** The character's inventory. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess = "true"))
+	class UInventoryComponent* Inventory;
 
 public:
 	AFornwestCharacter();
+
+	virtual void Tick(float DeltaSeconds) override;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -29,6 +45,26 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
+
+	/** Heals the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void Heal(float HealAmount);
+
+	/** Damages the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void ApplyDamage(float DamageAmount);
+
+	/** Health change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnHealthChanged OnHealthChanged;
+
+	/** Mana change delegate. */
+	UPROPERTY(BlueprintAssignable, Category = "Stats")
+	FOnManaChanged OnManaChanged;
+
+	/** The action text that displays when the player focuses on an interactable. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FText ActionText;
 
 protected:
 	/** Called for forwards/backward input */
@@ -48,6 +84,9 @@ protected:
 	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	*/
 	void LookUpAtRate(float Rate);
+
+	/** Interacts with the interactable that player is currently focused on. */
+	void Interact();
 	
 	/** Allows the character to begin sprinting. */
 	void Sprint();
@@ -75,17 +114,7 @@ protected:
 
 	/** Depletes player stamina. */
 	void DepleteStamina();
-
-	/** Heals the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void Heal(float HealAmount);
-
-	/** Damages the character. */
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void ApplyDamage(float DamageAmount);
 	
-	///////// STATS //////////
-	///
 	/** The max amount of health the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxHealth;
@@ -125,9 +154,7 @@ protected:
 	/** The rate at which the player's stamina depletes. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float StaminaDepleteRate;
-	
-	///////// STATUS //////////
-	///
+
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	bool IsCasting1H;
@@ -146,14 +173,10 @@ protected:
 	/** Is the player currently in combat or not. */
 	bool IsInCombat;
 
-	///////// FX //////////
-	///
 	/** Effect played on heal cast. */
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	UParticleSystem* HealFX;
 
-	///////// TIMERS //////////
-	///
 	/** Timer for waiting for the casting animation to finish. */
 	FTimerHandle CastAnimationTimer;
 	
@@ -169,14 +192,27 @@ protected:
 	/** Timer for calling stamina depletion. */
 	FTimerHandle StaminaDepleteTimer;
 
+private:
+
+	/** Toggle the inventory window open and closed. */
+	void ToggleInventory();
+	
+	/** Collects any auto pickups that the player comes in range of. */
+	void CollectAutoPickups();
+	
+	/** Uses a line cast to check for interactables. Called on Tick. */
+	void CheckForInteractables();
+	
+	/** The interactable currently focused on. */
+	class AInteractable* CurrentInteractable;
+
 protected:
-	// APawn interface
+	/** APawn interface */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	// End of APawn interface
 
 public:
-	/** Returns CameraBoom subobject **/
+	/** Returns CameraBoom sub object. **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera subobject **/
+	/** Returns FollowCamera sub object. **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
