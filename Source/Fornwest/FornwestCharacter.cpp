@@ -1,19 +1,16 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
-
+#include "FornwestController.h"
 #include "FornwestGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Core/Components/InventoryComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Item/Item.h"
 #include "Kismet/GameplayStatics.h"
-
-//////////////////////////////////////////////////////////////////////////
-// AFornwestCharacter
 
 AFornwestCharacter::AFornwestCharacter()
 {
@@ -49,6 +46,14 @@ AFornwestCharacter::AFornwestCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm.
 
+	// Create the auto collection sphere.
+	CollectionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollectionSphere"));
+	CollectionSphere->SetupAttachment(RootComponent);
+	CollectionSphere->SetSphereRadius(200.f);
+
+	// Create the inventory.
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+
 	// Stats
 	MaxHealth = 100.0f;
 	MaxMana = 100.0f;
@@ -70,8 +75,6 @@ AFornwestCharacter::AFornwestCharacter()
 void AFornwestCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	Inventory.SetNum(24);
 	CurrentInteractable = nullptr;
 }
 
@@ -79,15 +82,13 @@ void AFornwestCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
+	CollectAutoPickups();
 	CheckForInteractables();
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Input
-
 void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
-	// Set up gameplay key bindings
+	// Set up gameplay key bindings.
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
@@ -97,7 +98,6 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
 	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
 	PlayerInputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AFornwestCharacter::ToggleInventory);
-	
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -111,13 +111,13 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 
 void AFornwestCharacter::TurnAtRate(float Rate)
 {
-	// calculate delta for this frame from the rate information
+	// Calculate delta for this frame from the rate information.
 	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AFornwestCharacter::LookUpAtRate(float Rate)
 {
-	// calculate delta for this frame from the rate information
+	// Calculate delta for this frame from the rate information.
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 }
 
@@ -125,11 +125,11 @@ void AFornwestCharacter::MoveForward(float Value)
 {
 	if ((Controller != nullptr) && (Value != 0.0f))
 	{
-		// find out which way is forward
+		// Find out which way is forward.
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get forward vector
+		// Get forward vector.
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		AddMovementInput(Direction, Value);
 	}
@@ -139,13 +139,13 @@ void AFornwestCharacter::MoveRight(float Value)
 {
 	if ( (Controller != nullptr) && (Value != 0.0f) )
 	{
-		// find out which way is right
+		// Find out which way is right.
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 	
-		// get right vector 
+		// Get right vector.
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		// add movement in that direction
+		// Add movement in that direction.
 		AddMovementInput(Direction, Value);
 	}
 }
@@ -173,6 +173,30 @@ void AFornwestCharacter::Interact()
 	}
 }
 
+void AFornwestCharacter::CollectAutoPickups()
+{
+	// Get all overlapping AActors and store them in an array.
+	TArray<AActor*> CollectedActors;
+	CollectionSphere->GetOverlappingActors(CollectedActors);
+
+	//AFornwestController* Controller = Cast<AFornwestController>(GetController());
+
+	// Loop the array and test if each can be picked up.
+	for (int32 ICollected = 0; ICollected < CollectedActors.Num(); ++ICollected)
+	{
+		/*
+		// Cast the actor to AAutoPickup.
+		AAutoPickup* const TestPickup = Cast<AAutoPickup>(CollectedActors[ICollected]);
+		
+		// If the cast is successful and the pickup is valid and active then collect it.
+		if (TestPickup && !TestPickup->IsPendingKill())
+		{
+			TestPickup->Collect(Controller);
+		}
+		*/
+	}
+}
+
 void AFornwestCharacter::CheckForInteractables()
 {
 	// Get the start and end traces.
@@ -180,12 +204,12 @@ void AFornwestCharacter::CheckForInteractables()
 	FVector StartTrace = FollowCamera->GetComponentLocation();
 	FVector EndTrace = (FollowCamera->GetForwardVector() * Range) + StartTrace;
 
-	// Declare the hit result of the ray cast.
-	FHitResult HitResult;
-
 	// Ignore the player so we don't collide with it.
 	FCollisionQueryParams CollisionQueryParams;
 	CollisionQueryParams.AddIgnoredActor(this);
+
+	// Declare the hit result of the ray cast.
+	FHitResult HitResult;
 
 	// Cast the line trace.
 	GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECC_WorldDynamic, CollisionQueryParams);
@@ -201,13 +225,14 @@ void AFornwestCharacter::CheckForInteractables()
 		return;
 	}
 
-	// Set the current interactable so the player can interact with it.
+	// Set the current interactable and show the action text.
 	CurrentInteractable = PossibleInteractable;
 	ActionText = PossibleInteractable->ActionText;
 }
 
 void AFornwestCharacter::Sprint()
 {
+	// Increase the movement speed and start the deplete stamina timer.
 	IsSprinting = true;
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
 	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::DepleteStamina, 0.05f, true);
@@ -215,6 +240,7 @@ void AFornwestCharacter::Sprint()
 
 void AFornwestCharacter::StopSprinting()
 {
+	// Reduce the movement speed and start the regenerate stamina timer.
 	IsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::RegenerateStamina, 0.1f, true, 1.00f);
@@ -222,31 +248,36 @@ void AFornwestCharacter::StopSprinting()
 
 void AFornwestCharacter::StartDamage()
 {
+	// Debug function to take damage.
 	ApplyDamage(2.0f);
 }
 
-void AFornwestCharacter::Heal(float HealAmount)
+void AFornwestCharacter::Heal(const float HealAmount)
 {
+	// Heal the player.
 	CurrentHealth += HealAmount;
 	if (CurrentHealth > MaxHealth)
 	{
 		CurrentHealth = MaxHealth;
 	}
 
+	// Update the UI.
 	OnHealthChanged.Broadcast();
 }
 
-void AFornwestCharacter::ApplyDamage(float DamageAmount)
+void AFornwestCharacter::ApplyDamage(const float DamageAmount)
 {
+	// Reduce the player's health.
 	CurrentHealth -= DamageAmount;
 	if (CurrentHealth < 0.00f)
 	{
 		CurrentHealth = 0.00f;
 	}
 
+	// Update the UI.
 	OnHealthChanged.Broadcast();
 }
-
+/* this needs to be refactored
 void AFornwestCharacter::UseItem(UItem* Item)
 {
 	if (Item)
@@ -255,61 +286,7 @@ void AFornwestCharacter::UseItem(UItem* Item)
 		Item->OnUse(this); // Blueprint version
 	}
 }
-
-void AFornwestCharacter::UpdateMoney(int32 Amount)
-{
-	Money += Amount;
-}
-
-bool AFornwestCharacter::AddItemToInventory(APickup* Item)
-{
-	if (Item != nullptr)
-	{
-		// First slot with a nullptr is our first available spot.
-		const int32 AvailableSlot = Inventory.Find(nullptr);
-
-		// If the available spot is within the array we add it.
-		if (AvailableSlot != INDEX_NONE)
-		{
-			Inventory[AvailableSlot] = Item;
-			return true;
-		}
-		//TODO - show user feedback about full inventory
-		return false;
-	}
-
-	return false;
-}
-
-FText AFornwestCharacter::GetNameAtInventorySlot(int32 Slot)
-{
-	if (Inventory[Slot] != nullptr)
-	{
-		return Inventory[Slot]->Name;
-	}
-
-	return FText::FromString("");
-}
-
-UTexture2D* AFornwestCharacter::GetThumbnailAtInventorySlot(int32 Slot)
-{
-	if (Inventory[Slot] != nullptr)
-	{
-		return Inventory[Slot]->Thumbnail;
-	}
-
-	return nullptr;
-}
-
-void AFornwestCharacter::UseAtInventorySlot(int32 Slot)
-{
-	if (Inventory[Slot] != nullptr)
-	{
-		Inventory[Slot]->Use_Implementation();
-		Inventory[Slot] = nullptr;
-	}
-}
-
+*/
 void AFornwestCharacter::UseAbility1()
 {
 	if (IsCasting1H || IsCasting2H || IsCastingBuff)

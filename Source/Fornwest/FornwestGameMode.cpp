@@ -21,7 +21,18 @@ AFornwestGameMode::AFornwestGameMode()
 
 void AFornwestGameMode::BeginPlay()
 {
-	// Apply the HUD on begin play.
+	// Apply the initial HUD, which will setup the action bar.
+	ChangeHUD();
+}
+
+uint8 AFornwestGameMode::GetHUDState() const
+{
+	return HUDState;
+}
+
+void AFornwestGameMode::SetHUDState(const uint8 NewState)
+{
+	HUDState = NewState;
 	ChangeHUD();
 }
 
@@ -79,19 +90,8 @@ void AFornwestGameMode::ChangeHUD()
 	}
 }
 
-uint8 AFornwestGameMode::GetHUDState()
-{
-	return HUDState;
-}
-
-void AFornwestGameMode::SetHUDState(uint8 NewState)
-{
-	HUDState = NewState;
-	ChangeHUD();
-}
-
-bool AFornwestGameMode::ApplyHUD(TSubclassOf<UUserWidget> WidgetToApply, bool bShowMouseCursor,
-	bool bEnableClickEvents, bool bIsHUDClassUI)
+bool AFornwestGameMode::ApplyHUD(const TSubclassOf<UUserWidget> WidgetToApply, const bool bShowMouseCursor,
+                                 const bool bEnableClickEvents, const bool bIsHUDClassUI)
 {
 	// Get a reference to the player and the controller.
 	AFornwestCharacter* Character = Cast<AFornwestCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
