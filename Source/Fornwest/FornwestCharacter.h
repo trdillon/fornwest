@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Engine.h"
 #include "GameFramework/Character.h"
 #include "Core/Interactable.h"
-#include "Core/Pickup.h"
+#include "Core/Components/InventoryComponent.h"
 #include "FornwestCharacter.generated.h"
 
 // Blueprints can bind to these to update the UI.
@@ -24,6 +24,14 @@ class AFornwestCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
+	
+	/** Collection sphere */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class USphereComponent* CollectionSphere;
+
+	/** The character's inventory. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess = "true"))
+	class UInventoryComponent* Inventory;
 
 public:
 	AFornwestCharacter();
@@ -48,10 +56,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void ApplyDamage(float DamageAmount);
 
-	/** Uses an item. */
+	/** Uses an item. 
 	UFUNCTION(BlueprintCallable, Category = "Items")
 	void UseItem(class UItem* Item);
-
+	*/
 	/** Health change delegate. */
 	UPROPERTY(BlueprintAssignable, Category = "Stats")
 	FOnHealthChanged OnHealthChanged;
@@ -62,33 +70,7 @@ public:
 
 	/** The action text that displays when the player focuses on an interactable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
-	FString ActionText;
-
-	/** The amount of money the player has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD", meta = (ClampMin = 0))
-	int32 Money;
-
-	/** Updates the amount of money the player has.
-	@param Amount This is the amount to update the money by. Can be positive or negative.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
-	void UpdateMoney(int32 Amount);
-
-	/** Adds an item to the player's inventory. */
-	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
-	bool AddItemToInventory(APickup* Item);
-
-	/** Gets the name of the item at a given inventory slow. */
-	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
-	FString GetNameAtInventorySlot(int32 Slot);
-
-	/** Gets the thumbnail for an item at a given inventory slot. */
-	UFUNCTION(BlueprintPure, Category = "Inventory Functions")
-	UTexture2D* GetThumbnailAtInventorySlot(int32 Slot);
-
-	/** Uses the item at a given inventory slot. */
-	UFUNCTION(BlueprintCallable, Category = "Inventory Functions")
-	void UseAtInventorySlot(int32 Slot);
+	FText ActionText;
 
 protected:
 	/** Called for forwards/backward input */
@@ -136,8 +118,6 @@ protected:
 	/** Depletes player stamina. */
 	void DepleteStamina();
 	
-	///////// STATS //////////
-	///
 	/** The max amount of health the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxHealth;
@@ -177,9 +157,7 @@ protected:
 	/** The rate at which the player's stamina depletes. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float StaminaDepleteRate;
-	
-	///////// STATUS //////////
-	///
+
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	bool IsCasting1H;
@@ -198,14 +176,10 @@ protected:
 	/** Is the player currently in combat or not. */
 	bool IsInCombat;
 
-	///////// FX //////////
-	///
 	/** Effect played on heal cast. */
 	UPROPERTY(EditAnywhere, Category = "Ability")
 	UParticleSystem* HealFX;
 
-	///////// TIMERS //////////
-	///
 	/** Timer for waiting for the casting animation to finish. */
 	FTimerHandle CastAnimationTimer;
 	
@@ -229,24 +203,22 @@ private:
 	/** Interact with an interactable object if there is one closed enough. */
 	void Interact();
 	
+	/** Collects any auto pickups that the player comes in range of. */
+	void CollectAutoPickups();
+	
 	/** Uses a line cast to check for interactables. Called on Tick. */
 	void CheckForInteractables();
 
 	/** The interactable the player is currently focused on. */
 	AInteractable* CurrentInteractable;
 
-	/** The player's inventory. */
-	UPROPERTY(EditAnywhere)
-	TArray<APickup*> Inventory;
-
 protected:
-	// APawn interface
+	/** APawn interface */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	// End of APawn interface
 
 public:
-	/** Returns CameraBoom subobject **/
+	/** Returns CameraBoom sub object. **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera subobject **/
+	/** Returns FollowCamera sub object. **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };

@@ -16,6 +16,7 @@ public:
 
 	virtual void BeginPlay() override;
 
+	/** Tracks the state of the game to displayed the corresponding HUD classes. */
 	enum EHUDState : uint8
 	{
 		HS_Ingame,
@@ -27,17 +28,17 @@ public:
 		HS_Pause
 	};
 
-	/** Changes the HUD based on the current HUDState. */
-	void ChangeHUD();
-
 	/** Gets the current HUDState */
-	uint8 GetHUDState();
+	uint8 GetHUDState() const;
 
-	/** Sets the current HUDState then calls ChangeHUD. */
+	/** Sets the current HUDState then calls ChangeHUD to update it. */
 	UFUNCTION(BlueprintCallable, Category = "HUD Functions")
 	void SetHUDState(uint8 NewState);
 
-	/** Applies a HUD to the screen and returns whether or not it was successfully applied. */
+	/** Changes the HUD based on the current HUDState then calls ApplyHUD to update HUD specific settings. */
+	void ChangeHUD();
+
+	/** Applies a HUD and controller settings and returns whether or not it was successfully applied. */
 	bool ApplyHUD(TSubclassOf<class UUserWidget> WidgetToApply, bool bShowMouseCursor, bool bEnableClickEvents,
 		bool bIsHUDClassUI);
 
