@@ -210,10 +210,12 @@ void AFornwestCharacter::CheckForInteractables()
 		if (Interactable)
 		{
 			CurrentInteractable = Interactable;
+			ActionText = FText::FromString(Interactable->GetActionText());
 			return;
 		}
 	}
 
+	ActionText = FText::FromString("");
 	CurrentInteractable = nullptr;
 }
 
