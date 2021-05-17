@@ -221,7 +221,6 @@ void AFornwestCharacter::CheckForInteractables()
 
 void AFornwestCharacter::Sprint()
 {
-	// Increase the movement speed and start the deplete stamina timer.
 	IsSprinting = true;
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
 	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::DepleteStamina, 0.05f, true);
@@ -229,7 +228,6 @@ void AFornwestCharacter::Sprint()
 
 void AFornwestCharacter::StopSprinting()
 {
-	// Reduce the movement speed and start the regenerate stamina timer.
 	IsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::RegenerateStamina, 0.1f, true, 1.00f);
@@ -243,28 +241,20 @@ void AFornwestCharacter::StartDamage()
 
 void AFornwestCharacter::Heal(const float HealAmount)
 {
-	// Heal the player.
 	CurrentHealth += HealAmount;
 	if (CurrentHealth > MaxHealth)
 	{
 		CurrentHealth = MaxHealth;
 	}
-
-	// Update the UI.
-	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::ApplyDamage(const float DamageAmount)
 {
-	// Reduce the player's health.
 	CurrentHealth -= DamageAmount;
 	if (CurrentHealth < 0.00f)
 	{
 		CurrentHealth = 0.00f;
 	}
-
-	// Update the UI.
-	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::UseAbility1()
@@ -283,9 +273,7 @@ void AFornwestCharacter::UseAbility1()
 	GetCharacterMovement()->StopMovementImmediately();
 
 	CurrentMana -= 15.0f;
-	OnManaChanged.Broadcast();
 	Heal(15.0f);
-	OnHealthChanged.Broadcast();
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
 	
@@ -317,8 +305,6 @@ void AFornwestCharacter::RegenerateHealth()
 	{
 		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
 	}
-
-	OnHealthChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateMana()
@@ -333,8 +319,6 @@ void AFornwestCharacter::RegenerateMana()
 	{
 		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
 	}
-
-	OnManaChanged.Broadcast();
 }
 
 void AFornwestCharacter::RegenerateStamina()

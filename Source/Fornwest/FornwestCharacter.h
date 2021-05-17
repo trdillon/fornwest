@@ -8,10 +8,6 @@
 #include "Core/Components/InventoryComponent.h"
 #include "FornwestCharacter.generated.h"
 
-// Blueprints can bind to these to update the UI.
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHealthChanged);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnManaChanged);
-
 UCLASS(config=Game)
 class AFornwestCharacter : public ACharacter
 {
@@ -53,14 +49,6 @@ public:
 	/** Damages the character. */
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void ApplyDamage(float DamageAmount);
-
-	/** Health change delegate. */
-	UPROPERTY(BlueprintAssignable, Category = "Stats")
-	FOnHealthChanged OnHealthChanged;
-
-	/** Mana change delegate. */
-	UPROPERTY(BlueprintAssignable, Category = "Stats")
-	FOnManaChanged OnManaChanged;
 
 	/** The action text that displays when the player focuses on an interactable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
@@ -114,6 +102,14 @@ protected:
 
 	/** Depletes player stamina. */
 	void DepleteStamina();
+
+	/** The current level of the player. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	int32 CurrentLevel;
+
+	/** The amount of experience the player currently has. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	int32 CurrentXP;
 	
 	/** The max amount of health the player can have. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
