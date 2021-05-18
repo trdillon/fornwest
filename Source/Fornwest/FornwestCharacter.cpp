@@ -92,7 +92,6 @@ void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* Player
 	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
 	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
 	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
-	PlayerInputComponent->BindAction("ToggleInventory", IE_Pressed, this, &AFornwestCharacter::ToggleInventory);
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -150,21 +149,6 @@ void AFornwestCharacter::Interact()
 	if (CurrentInteractable)
 	{
 		CurrentInteractable->Interact(this);
-	}
-}
-
-void AFornwestCharacter::ToggleInventory()
-{
-	// Check if inventory is already open, if so then close it.
-	AFornwestGameMode* GameMode = Cast<AFornwestGameMode>(GetWorld()->GetAuthGameMode());
-
-	if (GameMode->GetHUDState() == GameMode->HS_Ingame)
-	{
-		GameMode->SetHUDState(GameMode->HS_Inventory);
-	}
-	else
-	{
-		GameMode->SetHUDState(GameMode->HS_Ingame);
 	}
 }
 

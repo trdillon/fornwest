@@ -190,9 +190,6 @@ protected:
 
 private:
 
-	/** Toggle the inventory window open and closed. */
-	void ToggleInventory();
-	
 	/** Collects any auto pickups that the player comes in range of. */
 	void CollectAutoPickups();
 	
