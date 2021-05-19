@@ -29,32 +29,17 @@ class AFornwestCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess = "true"))
 	class UInventoryComponent* Inventory;
 
+	/** The character's stats. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stats, meta = (AllowPrivateAccess = "true"))
+	class UStatsComponent* Stats;
+
 public:
+	/** Default constructor. */
 	AFornwestCharacter();
 
+	/** Called every frame. */
 	virtual void Tick(float DeltaSeconds) override;
 
-	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
-	float BaseTurnRate;
-
-	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
-	float BaseLookUpRate;
-
-	/** Heals the character. */
-	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void Heal(float HealAmount);
-
-	/** Damages the character. */
-	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void ApplyDamage(float DamageAmount);
-
-	/** The action text that displays when the player focuses on an interactable. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
-	FText ActionText;
-
-protected:
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
 
@@ -73,6 +58,14 @@ protected:
 	*/
 	void LookUpAtRate(float Rate);
 
+	/** Heals the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void Heal(float HealAmount);
+
+	/** Damages the character. */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void ApplyDamage(float DamageAmount);
+
 	/** Interacts with the interactable that player is currently focused on. */
 	void Interact();
 	
@@ -88,68 +81,43 @@ protected:
 	/** Debug command to use ability 1. */
 	void UseAbility1();
 
+	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
+	float BaseTurnRate;
+
+	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
+	float BaseLookUpRate;
+
+	/** The name of the character. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Details")
+	FText Name;
+
+	/** The action text that displays when the player focuses on an interactable. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FText ActionText;
+
+	/** Returns CameraBoom sub object. **/
+	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	
+	/** Returns FollowCamera sub object. **/
+	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+protected:
+	/** APawn interface. */
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	/** Called when health regeneration is ready to start. Checks conditions for regen and if met calls regen function on stats component. */
+	void OnHealthRegen();
+	
+	void OnManaRegen();
+
+	void OnStaminaRegen();
+
+	void OnStaminaDeplete();
+
 	/** Handler for when a casting animation is finished. */
 	void OnCastingFinish();
-
-	/** Regenerates player health. */
-	void RegenerateHealth();
-
-	/** Regenerates player mana. */
-	void RegenerateMana();
-
-	/** Regenerates player stamina. */
-	void RegenerateStamina();
-
-	/** Depletes player stamina. */
-	void DepleteStamina();
-
-	/** The current level of the player. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	int32 CurrentLevel;
-
-	/** The amount of experience the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	int32 CurrentXP;
-	
-	/** The max amount of health the player can have. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MaxHealth;
-	
-	/** The max amount of mana the player can have. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MaxMana;
-
-	/** The max amount of stamina the player can have. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MaxStamina;
-
-	/** The amount of health the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float CurrentHealth;
-	
-	/** The amount of mana the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float CurrentMana;
-
-	/** The amount of stamina the player currently has. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float CurrentStamina;
-
-	/** The rate at which the player's health regenerates. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float HealthRegenRate;
-
-	/** The rate at which the player's mana regenerates. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float ManaRegenRate;
-
-	/** The rate at which the player's stamina regenerates. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float StaminaRegenRate;
-
-	/** The rate at which the player's stamina depletes. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float StaminaDepleteRate;
 
 	/** Is the player currently casting a 1 handed spell or not. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
@@ -189,7 +157,6 @@ protected:
 	FTimerHandle StaminaDepleteTimer;
 
 private:
-
 	/** Collects any auto pickups that the player comes in range of. */
 	void CollectAutoPickups();
 	
@@ -197,15 +164,6 @@ private:
 	void CheckForInteractables();
 	
 	/** The interactable currently focused on. */
+	UPROPERTY()
 	class AInteractable* CurrentInteractable;
-
-protected:
-	/** APawn interface */
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-public:
-	/** Returns CameraBoom sub object. **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera sub object. **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };

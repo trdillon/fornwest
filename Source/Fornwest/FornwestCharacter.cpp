@@ -1,15 +1,12 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "FornwestCharacter.h"
-#include "FornwestGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/InputComponent.h"
 #include "Core/Interactable.h"
 #include "Core/Components/InventoryComponent.h"
+#include "Core/Components/StatsComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/Controller.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "Items/AutoPickup.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -38,14 +35,14 @@ AFornwestCharacter::AFornwestCharacter()
 
 	// Create a camera boom (pulls in towards the player if there is a collision).
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character.
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller.
-
+	CameraBoom->SetupAttachment(RootComponent);
+	
 	// Create a follow camera.
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm.
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation.
 
 	// Create the auto collection sphere.
 	CollectionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollectionSphere"));
@@ -55,22 +52,33 @@ AFornwestCharacter::AFornwestCharacter()
 	// Create the inventory.
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 
-	// Stats
-	MaxHealth = 100.0f;
-	MaxMana = 100.0f;
-	MaxStamina = 100.0f;
-	CurrentHealth = 100.0f;
-	CurrentMana = 100.0f;
-	CurrentStamina = 100.0f;
-	HealthRegenRate = 0.25f;
-	ManaRegenRate = 0.25f;
-	StaminaRegenRate = 1.0f;
-	StaminaDepleteRate = 1.0f;
+	// Create the stats component.
+	Stats = CreateDefaultSubobject<UStatsComponent>(TEXT("Stats"));
 	
 	IsSprinting = false;
 	IsCasting1H = false;
 	IsCasting2H = false;
 	IsCastingBuff = false;
+}
+
+void AFornwestCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
+	// "turn" handles devices that provide an absolute delta, such as a mouse.
+	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
+	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
+	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
+	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFornwestCharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFornwestCharacter::StopJumping);
+	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
+	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
+	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
+	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
 }
 
 void AFornwestCharacter::Tick(float DeltaSeconds)
@@ -81,46 +89,12 @@ void AFornwestCharacter::Tick(float DeltaSeconds)
 	CheckForInteractables();
 }
 
-void AFornwestCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
-{
-	// Set up gameplay key bindings.
-	check(PlayerInputComponent);
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFornwestCharacter::Sprint);
-	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFornwestCharacter::StopSprinting);
-	PlayerInputComponent->BindAction("Damage", IE_Pressed, this, &AFornwestCharacter::StartDamage);
-	PlayerInputComponent->BindAction("Ability1", IE_Pressed, this, &AFornwestCharacter::UseAbility1);
-	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFornwestCharacter::Interact);
-	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
-	// "turn" handles devices that provide an absolute delta, such as a mouse.
-	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
-	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
-	PlayerInputComponent->BindAxis("TurnRate", this, &AFornwestCharacter::TurnAtRate);
-	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis("LookUpRate", this, &AFornwestCharacter::LookUpAtRate);
-	PlayerInputComponent->BindAxis("MoveForward", this, &AFornwestCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AFornwestCharacter::MoveRight);
-}
-
-void AFornwestCharacter::TurnAtRate(float Rate)
-{
-	// Calculate delta for this frame from the rate information.
-	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
-}
-
-void AFornwestCharacter::LookUpAtRate(float Rate)
-{
-	// Calculate delta for this frame from the rate information.
-	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
-}
-
 void AFornwestCharacter::MoveForward(float Value)
 {
 	if ((Controller != nullptr) && (Value != 0.0f))
 	{
 		// Find out which way is forward.
-		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator Rotation = this->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
 		// Get forward vector.
@@ -134,7 +108,7 @@ void AFornwestCharacter::MoveRight(float Value)
 	if ( (Controller != nullptr) && (Value != 0.0f) )
 	{
 		// Find out which way is right.
-		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator Rotation = this->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 	
 		// Get right vector.
@@ -142,6 +116,18 @@ void AFornwestCharacter::MoveRight(float Value)
 		// Add movement in that direction.
 		AddMovementInput(Direction, Value);
 	}
+}
+
+void AFornwestCharacter::TurnAtRate(float Rate)
+{
+	// Calculate delta for this frame from the rate information.
+	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+}
+
+void AFornwestCharacter::LookUpAtRate(float Rate)
+{
+	// Calculate delta for this frame from the rate information.
+	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AFornwestCharacter::Interact()
@@ -207,14 +193,14 @@ void AFornwestCharacter::Sprint()
 {
 	IsSprinting = true;
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
-	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::DepleteStamina, 0.05f, true);
+	GetWorldTimerManager().SetTimer(StaminaDepleteTimer, this, &AFornwestCharacter::OnStaminaDeplete, 0.05f, true);
 }
 
 void AFornwestCharacter::StopSprinting()
 {
 	IsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
-	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::RegenerateStamina, 0.1f, true, 1.00f);
+	GetWorldTimerManager().SetTimer(StaminaRegenTimer, this, &AFornwestCharacter::OnStaminaRegen, 0.1f, true, 1.00f);
 }
 
 void AFornwestCharacter::StartDamage()
@@ -225,19 +211,19 @@ void AFornwestCharacter::StartDamage()
 
 void AFornwestCharacter::Heal(const float HealAmount)
 {
-	CurrentHealth += HealAmount;
-	if (CurrentHealth > MaxHealth)
+	Stats->CurrentHealth += HealAmount;
+	if (Stats->CurrentHealth > Stats->MaxHealth)
 	{
-		CurrentHealth = MaxHealth;
+		Stats->CurrentHealth = Stats->MaxHealth;
 	}
 }
 
 void AFornwestCharacter::ApplyDamage(const float DamageAmount)
 {
-	CurrentHealth -= DamageAmount;
-	if (CurrentHealth < 0.00f)
+	Stats->CurrentHealth -= DamageAmount;
+	if (Stats->CurrentHealth < 0.00f)
 	{
-		CurrentHealth = 0.00f;
+		Stats->CurrentHealth = 0.00f;
 	}
 }
 
@@ -248,7 +234,7 @@ void AFornwestCharacter::UseAbility1()
 		return;
 	}
 
-	if (CurrentMana < 15.0f)
+	if (Stats->CurrentMana < 15.0f)
 	{
 		return;
 	}
@@ -256,7 +242,7 @@ void AFornwestCharacter::UseAbility1()
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
 
-	CurrentMana -= 15.0f;
+	Stats->CurrentMana -= 15.0f;
 	Heal(15.0f);
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HealFX, this->GetMesh()->GetSocketLocation("RightFoot"));
@@ -265,7 +251,62 @@ void AFornwestCharacter::UseAbility1()
 
 	// Wait for the casting to finish before moving on.
 	GetWorldTimerManager().SetTimer(CastAnimationTimer, this, &AFornwestCharacter::OnCastingFinish, 2.00f, false);
-	GetWorldTimerManager().SetTimer(HealthRegenTimer, this, &AFornwestCharacter::RegenerateHealth, 0.4f, true, 5.00f);
+	GetWorldTimerManager().SetTimer(HealthRegenTimer, this, &AFornwestCharacter::OnHealthRegen, 0.4f, true, 5.00f);
+}
+
+void AFornwestCharacter::OnHealthRegen()
+{
+	if (Stats->CurrentHealth == Stats->MaxHealth)
+	{
+		GetWorldTimerManager().ClearTimer(HealthRegenTimer);
+		return;
+	}
+
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		Stats->RegenerateHealth();
+	}
+}
+
+void AFornwestCharacter::OnManaRegen()
+{
+	if (Stats->CurrentMana == Stats->MaxMana)
+	{
+		GetWorldTimerManager().ClearTimer(ManaRegenTimer);
+		return;
+	}
+	
+	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
+	{
+		Stats->RegenerateMana();
+	}
+}
+
+void AFornwestCharacter::OnStaminaRegen()
+{
+	if (Stats->CurrentStamina == Stats->MaxStamina)
+	{
+		GetWorldTimerManager().ClearTimer(StaminaRegenTimer);
+		return;
+	}
+	
+	if (Stats->CurrentStamina < Stats->MaxStamina && !IsSprinting)
+	{
+		Stats->RegenerateStamina();
+	}
+}
+
+void AFornwestCharacter::OnStaminaDeplete()
+{
+	if (IsSprinting)
+	{
+		Stats->DepleteStamina();
+		if (Stats->CurrentStamina <= 0)
+		{
+			GetWorldTimerManager().ClearTimer(StaminaDepleteTimer);
+			StopSprinting();
+		}
+	}
 }
 
 void AFornwestCharacter::OnCastingFinish()
@@ -274,60 +315,5 @@ void AFornwestCharacter::OnCastingFinish()
 	IsCasting2H = false;
 	IsCastingBuff = false;
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-	GetWorldTimerManager().SetTimer(ManaRegenTimer, this, &AFornwestCharacter::RegenerateMana, 0.2f, true, 4.00f);
-}
-
-void AFornwestCharacter::RegenerateHealth()
-{
-	if (CurrentHealth == MaxHealth)
-	{
-		GetWorldTimerManager().ClearTimer(HealthRegenTimer);
-		return;
-	}
-	
-	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
-	{
-		CurrentHealth = FMath::Clamp(this->CurrentHealth += HealthRegenRate, 0.0f, MaxHealth);
-	}
-}
-
-void AFornwestCharacter::RegenerateMana()
-{
-	if (CurrentMana == MaxMana)
-	{
-		GetWorldTimerManager().ClearTimer(ManaRegenTimer);
-		return;
-	}
-	
-	if (!IsCasting1H && !IsCasting2H && !IsCastingBuff)
-	{
-		CurrentMana = FMath::Clamp(this->CurrentMana += ManaRegenRate, 0.0f, MaxMana);
-	}
-}
-
-void AFornwestCharacter::RegenerateStamina()
-{
-	if (CurrentStamina == MaxStamina)
-	{
-		GetWorldTimerManager().ClearTimer(StaminaRegenTimer);
-		return;
-	}
-	
-	if (this->CurrentStamina < MaxStamina && !IsSprinting)
-	{
-		CurrentStamina = FMath::Clamp(this->CurrentStamina += StaminaRegenRate, 0.0f, this->MaxStamina);
-	}
-}
-
-void AFornwestCharacter::DepleteStamina()
-{
-	if (IsSprinting)
-	{
-		CurrentStamina = FMath::Clamp(this->CurrentStamina -= StaminaDepleteRate, 0.0f, this->MaxStamina);
-		if (CurrentStamina <= 0)
-		{
-			GetWorldTimerManager().ClearTimer(StaminaDepleteTimer);
-			StopSprinting();
-		}
-	}
+	GetWorldTimerManager().SetTimer(ManaRegenTimer, this, &AFornwestCharacter::OnManaRegen, 0.2f, true, 4.00f);
 }
